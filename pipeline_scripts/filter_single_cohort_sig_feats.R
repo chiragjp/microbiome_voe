@@ -1,0 +1,29 @@
+#find and remove features that only showed up in one cohort (for multi cohort phenotypes only) after meta-analysis
+
+library(tidyverse)
+
+args <- commandArgs(trailingOnly = TRUE)
+
+d=readRDS(args[[1]])
+
+#get number of datasets
+dsetnum=max(unlist(unname(lapply(d,function(x) nrow(x[[1]]$data)))))
+
+if(is.finite(dsetnum)==FALSE){
+  dsetnum=1
+}
+
+if(dsetnum>1){
+#remove rows with not enough datasets
+lengths=sapply(d,function(x) nrow(x[[1]]$data))
+lengths=unname(unlist(lapply(lengths, (function(x) {if (is.null(x) | length(x) == 0) {0} else { x }}))))
+toremove=colnames(d[,lengths<=1])
+d=d[,lengths>1]
+
+#save output file
+saveRDS(d,args[[2]])
+#saveRDS(toremove,args[[3]])
+}
+if(dsetnum==1){
+  saveRDS(d,args[[2]])
+}

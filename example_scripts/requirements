@@ -1,0 +1,17 @@
+broom
+broom.mixed
+cowplot
+curatedMetagenomicData
+ggplot2
+dplyr
+lme4
+lmerTest
+magrittr
+meta
+metafor
+purrr
+rje 
+rlang 
+stringr
+tidyverse
+vegan
