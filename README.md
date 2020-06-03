@@ -12,9 +12,9 @@ This repository contains the associated code for our manuscript, "XXX." Contents
 
 ### example_scripts:
 
-> A refined example case of our pipeline that will run locally on most machines. If you like, you can adapt this code as a model for your own vibration of effects analyses (this will be most easily done with data from curatedMetagenomicData given the structure of the pipeline.)
+> A refined example case of our pipeline that will run locally on most machines. If you like, you can adapt this code as a model for your own vibration of effects analyses (this will be most easily done with data from curatedMetagenomicData given the structure of the pipeline).
 
-#### to run the example code:
+#### To run the example code:
 
 1) Clone the repo:
 
