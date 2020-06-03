@@ -92,7 +92,7 @@ nest_compute_CMD <- function(df, study_cond, threshold, vars_to_remove) {
     filtered_studycond_df <- get_study_condition_datasets(df, study_cond)
     nested_selected <- nest_compute_helper(filtered_studycond_df, threshold, vars_to_remove)
     return(nested_selected %>% 
-             mutate(pruned_data = map(row.names(nested_selected), function(x) return(select(nested_selected[[as.numeric(x), 3]][[1]], nested_selected[[as.numeric(x), 4]][[1]]) %>% drop_na())), # selects vars in data based on pruned_vars, and removes any rows with na
+             mutate(pruned_data = map(row.names(nested_selected), function(x) return(select(nested_selected[[as.numeric(x), 3]], nested_selected[[as.numeric(x), 4]]) %>% drop_na())), # selects vars in data based on pruned_vars, and removes any rows with na
                     model_df = map(pruned_data, function(x) return(convert_factors_and_scale_helper(x, study_cond))), # convert and scale,
                     model_selected_df = map(model_df, function(x) return(x %>%
                                                                            select_if(~!anyNA(.)) %>% # select out any vars that failed conversion and scale (generally bc of only having 1 value repeated)
