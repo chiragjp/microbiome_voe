@@ -36,4 +36,4 @@ conda activate voetest
 
 On most modern persnal machines it should complete in about 2 minutes tops, generating plots and summary data in a folder called `example_pipeline_output`. If you want more information on each individual step as well as script arguments, you can read the `deploy_example_pipeline.sh` file, which has all of the above as well as a description of the output files you would expect 
 
-If you don't like using Conda, you can alternatively just install R (V3.6.1) the dependencies in the voe.yml manually or using the script example_scripts/install_packages.R, though depending on your system architecture and available dependencies this can occasionally run into build issues that have to be manually debugged.
+If you don't like using Conda, you can alternatively just install R (V4.0.0) the dependencies in the voe.yml manually or using the script example_scripts/install_packages.R, though depending on your system architecture and available dependencies this can occasionally run into build issues that have to be manually debugged.
