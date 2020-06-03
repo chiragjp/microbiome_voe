@@ -20,14 +20,14 @@ cmd_data_subset_for_example = cmd_data[readRDS('features_to_sample.rds'),]
 ######second, compute shannon diversity 
 
 #some of these packages need to be loaded after CMD download is completed due to function name conflicts
-suppressMessageslibrary(dplyr))
-suppressMessageslibrary(purrr))
-suppressMessageslibrary(tidyr))
-suppressMessageslibrary(magrittr))
-suppressMessageslibrary(broom))
-suppressMessageslibrary(stringr)) # regex pattern matching
-suppressMessageslibrary(rlang)) # rlang::duplicate()
-suppressMessageslibrary(vegan))
+suppressMessages(library(dplyr))
+suppressMessages(library(purrr))
+suppressMessages(library(tidyr))
+suppressMessages(library(magrittr))
+suppressMessages(library(broom))
+suppressMessages(library(stringr)) # regex pattern matching
+suppressMessages(library(rlang)) # rlang::duplicate()
+suppressMessages(library(vegan))
 
 compute_diversity <- function(df) {
   no_feature_df <- df %>% select(-feature_names)
