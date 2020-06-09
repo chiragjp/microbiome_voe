@@ -22,7 +22,7 @@ This repository contains the associated code for our manuscript, "Vibration of e
 
 2) Install miniconda (https://docs.conda.io/en/latest/miniconda.html) and cd into the example_scripts directory
 
-3) Using the YAML file in the example_scripts directory, install the necessary R packages into a conda environment with:
+3) Using the YAML file in the example_scripts directory, install the necessary R packages into and activate a conda environment with:
 
 ```
 conda env create --file voe.yml --name voetest 
@@ -31,6 +31,7 @@ conda activate voetest
 
 4) You can now run the miniature pipeline in the example_scripts directory. 
 ```
+chmod +x deploy_example_pipeline.sh
 ./deploy_example_pipeline.sh
 ```
 
