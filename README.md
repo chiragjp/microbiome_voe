@@ -6,7 +6,7 @@ If you want to learn more about vibration of effects (VoE), check out this paper
 
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4555355/
 
-Contents of directories:
+## Contents of directories:
 
 ### manuscript_scripts:
 
