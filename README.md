@@ -1,4 +1,4 @@
-# microbiome_voe
+# Leveraging vibration of effects to ensure microbiome reproducibility
 
 This repository contains the associated code for our manuscript, "Vibration of effects sets a standard for reproducible microbiome associations and identifies robust, gene-level architectures across 8 diseases." Contents of directories:
 
