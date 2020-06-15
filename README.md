@@ -1,6 +1,6 @@
 # Leveraging vibration of effects to stress-test microbiome associations
 
-This repository contains the associated code for our manuscript, "Vibration of effects sets a standard for reproducible microbiome associations and identifies robust, gene-level architectures across 8 diseases." 
+This repository contains the associated code for our in-prep manuscript, "Vibration of effects sets a standard for reproducible microbiome associations and identifies robust, gene-level architectures across 8 diseases." 
 
 If you want to learn more about vibration of effects (VoE), check out this paper: 
 
