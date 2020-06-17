@@ -14,7 +14,7 @@ install.packages("rlang",repos='http://cran.us.r-project.org')#,dependencies=TRU
 install.packages("broom.mixed",repos='http://cran.us.r-project.org')#,dependencies=TRUE)
 
 if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
+    install.packages("BiocManager",repos='http://cran.us.r-project.org'))
 
-BiocManager::install("curatedMetagenomicData")
+BiocManager::install("curatedMetagenomicData",repos='http://cran.us.r-project.org'))
 
