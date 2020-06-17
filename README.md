@@ -35,7 +35,16 @@ conda env create --file voe.yml --name voetest
 conda activate voetest
 ```
 
-4) You can now run the miniature pipeline in the example_scripts directory. 
+4) Due to some currently unresolved conda sourcing issues, you currently need to open an interactive session of R (type "R" at the terminal after loading the newly created environment) and install curatedMetagenomicData manually, following any prompts the appear:
+
+```
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager",repos='http://cran.us.r-project.org'))
+
+BiocManager::install("curatedMetagenomicData",repos='http://cran.us.r-project.org'))
+```
+
+4) After the install completes, close out of the R environment, returning to your bash command line. You can now run the miniature pipeline in the example_scripts directory. 
 ```
 chmod +x deploy_example_pipeline.sh
 ./deploy_example_pipeline.sh
