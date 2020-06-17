@@ -41,7 +41,7 @@ conda activate voetest
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager",repos='http://cran.us.r-project.org'))
 
-BiocManager::install("curatedMetagenomicData",repos='http://cran.us.r-project.org'))
+BiocManager::install("curatedMetagenomicData"))
 ```
 
 4) After the install completes, close out of the R environment, returning to your bash command line. You can now run the miniature pipeline in the example_scripts directory. 
