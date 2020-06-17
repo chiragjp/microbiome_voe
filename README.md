@@ -18,7 +18,7 @@ https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4555355/
 
 ### example_scripts:
 
-> A refined example case of our pipeline that will run locally on linux-based operating systems. If you like, you can adapt this code as a model for your own vibration of effects analyses (this will be most easily done with data from curatedMetagenomicData given the structure of the pipeline).
+> A refined example case of our pipeline that will run locally on linux-based operating systems. It shows the vibration for a few associations between colorectal cancer and gut microbiota, with an emphasis on *F. nucleatum*, a particularly robust (i.e. minimal vibration) correlation. If you like, you can adapt this code as a model for your own vibration of effects analyses (this will be most easily done with data from curatedMetagenomicData given the structure of the pipeline). We are currently working to extend the code here to a more adaptable platform for other datasets.
 
 #### To run the example code:
 
