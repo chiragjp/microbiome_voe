@@ -52,7 +52,6 @@ compute_microbial_feature_proportions <- function(df, metaphlan_df){
 # and computes associations one-by-one and outputs in a tibble.
 compute_lm_associations <- function(df, metaphlan_df,phenotype){
   # find fudge factor for logging
-  browser()
   fudge_factor <- min((metaphlan_df %>% select(-1, -2) %>% unlist())[which((metaphlan_df %>% select(-1, -2) %>% unlist()) > 0)]) 
   # clean dataset name folder if working with gene families
   #iterate through each cohort for each feature
@@ -146,6 +145,11 @@ compute_lm_associations <- function(df, metaphlan_df,phenotype){
         })
         #run regression
         regression_df=regression_df %>% drop_na %>% select_if(~ length(unique(.)) > 1)
+        regression_df <- regression_df %>% 
+          rename(
+            disease = study_condition
+          )
+        browser()
         return(tryCatch(tidy(stats::lm(as.formula(str_c("I(log10(`", new_feature_name, "` + ", toString(fudge_factor), ")) ~ disease")), # fit lm and get tidy outputs, excluding ID vars (sampleID and subjectID)
                                        data = regression_df))
                         
@@ -167,15 +171,14 @@ compute_lm_associations <- function(df, metaphlan_df,phenotype){
 }
 
 main <- function() {
-  args <- c('metadata.rds', 't_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
+  #args <- c('metadata.rds', 't_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
+  args <- c('CRC_example_modeldfs.rds', 't_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
   cmd_file <- as_tibble(readRDS(args[[1]]))
-  browser()
   datatype_file <- as_tibble(readRDS(args[[2]]))
   outputname <- args[[3]]
   phenotype=args[[4]]
   output <- compute_lm_associations(cmd_file, datatype_file,phenotype)
-  saveRDS(output, 
-          outputname)
+  saveRDS(output, outputname)
 }
 
 main()
