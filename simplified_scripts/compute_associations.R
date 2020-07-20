@@ -145,11 +145,12 @@ compute_lm_associations <- function(df, metaphlan_df,phenotype){
         })
         #run regression
         regression_df=regression_df %>% drop_na %>% select_if(~ length(unique(.)) > 1)
+        
+        # Added to change column name study_condition of example data to "disease" so it matches iyr data 
         regression_df <- regression_df %>% 
           rename(
             disease = study_condition
           )
-        browser()
         return(tryCatch(tidy(stats::lm(as.formula(str_c("I(log10(`", new_feature_name, "` + ", toString(fudge_factor), ")) ~ disease")), # fit lm and get tidy outputs, excluding ID vars (sampleID and subjectID)
                                        data = regression_df))
                         
@@ -171,8 +172,12 @@ compute_lm_associations <- function(df, metaphlan_df,phenotype){
 }
 
 main <- function() {
-  #args <- c('metadata.rds', 't_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
-  args <- c('CRC_example_modeldfs.rds', 't_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
+  #2020 T2D Data
+  #args <- c('2020_T2D_Data/metadata.rds', '2020_T2D_Data/t_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
+  
+  # Example Data 
+  args <- c('Example_Data/CRC_example_modeldfs.rds', 'Example_Data/t_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
+  
   cmd_file <- as_tibble(readRDS(args[[1]]))
   datatype_file <- as_tibble(readRDS(args[[2]]))
   outputname <- args[[3]]
