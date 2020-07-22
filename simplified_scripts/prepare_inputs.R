@@ -1,12 +1,20 @@
 suppressMessages(library(tidyverse))
 suppressMessages(library(readxl))
 
+library(BiocFileCache)
+library(curatedMetagenomicData)
+library(readxl)
+library(skimr)
+
 # The combined Metadata Excel sheet should:
 #   1. Have a column called "dataset_name" with a reference to the researcher or name of the study associated
 #   2. Have a column named "disease" (where 0 indicates control or lack of T2D, 1 indicates prediabetes, and 2 indicates diabetes)
 
 
 main <- function() {
+  qinData <- curatedMetagenomicData("QinJ_2012.metaphlan_bugs_list.stool", dryrun=FALSE)
+  qinDF <- pData(qinData[[1]])
+  browser()
   # Replace the arguments with the names of your files (save the files in the same directory)
   args <- c('combinedMetadata.xlsx', 't_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
   
