@@ -1,0 +1,118 @@
+---
+title: "Metadata Figures"
+author: "Elizabeth Anderson"
+date: "7/22/2020"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+suppressMessages(library(readxl))
+suppressMessages(library(tidyverse))
+suppressMessages(library(skimr))
+suppressMessages(library(httr))
+suppressMessages(library(RColorBrewer))
+```
+
+## Loading and Reviewing Metadata Info
+
+To start off, we need to access the excel metadata that is found in this folder. It's called 'combinedMetadata.xlsx'
+
+### Creating HMP Data Info
+```{Managing HMP Raw Data}
+suppressMessages(library(httr))
+sample_data <- read_tsv('https://storage.googleapis.com/gbsc-gcp-project-ipop_public/HMP/clinical_tests/clinical_tests.txt')
+GET('https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-019-1236-x/MediaObjects/41586_2019_1236_MOESM3_ESM.xlsx', write_disk(tf <- tempfile(fileext = ".xlsx")))
+patient_data <- read_excel(tf, 1L)
+
+```
+
+
+### Summarizing Metadata 
+```{r download metadata information}
+metadata_df <- read_excel('combinedMetadata.xlsx', sheet = 1)
+# Add summary statistics for the data (across cohorts and separately)
+skim(metadata_df)
+skim(metadata_df, age)
+```
+
+## Visualizing the Metadata
+
+### Age
+
+```{r age}
+tibbleData = as_tibble(metadata_df)
+tibbleData <- tibbleData %>% filter(age != "NA")
+tibbleData$age <- as.numeric(tibbleData$age)
+
+ggplot(tibbleData, aes(x=dataset_name, y=age)) +
+  geom_boxplot(aes(color=dataset_name)) + 
+  theme_light() + 
+  ylab('Age (years)') + 
+  theme(legend.position = "none")
+
+
+ggsave("age_boxplot.png")
+```
+
+
+### Gender 
+
+```{r Gender}
+tibbleData = as_tibble(metadata_df)
+tibbleData <- tibbleData %>% filter(gender != "NA")
+
+ggplot(tibbleData, aes(x=dataset_name, fill = gender)) +
+  geom_bar() + 
+  theme_light() 
+
+ggsave("gender_barplot.png")
+```
+
+### Disease Condition
+```{r T2D}
+tibbleData = as_tibble(metadata_df)
+tibbleData <- tibbleData %>% filter(study_condition != "NA")
+
+ggplot(tibbleData, aes(x=dataset_name, fill = study_condition)) +
+  geom_bar() + 
+  scale_fill_brewer(palette = "Blues",
+                     labels = c("Control", "Type 2 Diabetes (T2D)")) +
+  theme_light() 
+
+ggsave("disease_barplot.png")
+```
+
+### Body-Mass Index (BMI)
+```{r BMI}
+tibbleData = as_tibble(metadata_df)
+tibbleData <- tibbleData %>% filter(BMI != "NA")
+tibbleData$BMI <- as.numeric(tibbleData$BMI)
+
+ggplot(tibbleData, aes(x=dataset_name, y=BMI)) +
+  geom_boxplot(aes(color=dataset_name)) + 
+  theme_light() + 
+  ylab('BMI (kg/m2)') + 
+  theme(legend.position = "none")
+
+ggsave("BMI_boxplot.png")
+```
+
+### HDL 
+```{r HDL}
+metadata_df <- read_excel('combinedMetadata.xlsx', sheet = 2)
+tibbleData = as_tibble(metadata_df)
+tibbleData <- tibbleData %>% filter(hdl != "NA")
+tibbleData$hdl <- as.numeric(tibbleData$hdl)
+
+ggplot(tibbleData, aes(x=dataset_name, y=hdl)) +
+  geom_boxplot(aes(color=dataset_name)) + 
+  theme_light() + 
+  ylab('HDL(mmol/L)') + 
+  theme(legend.position = "none")
+
+ggsave("HDL_boxplot.png")
+```
