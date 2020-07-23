@@ -3,8 +3,6 @@ title: "Metadata Figures"
 author: "Elizabeth Anderson"
 date: "7/22/2020"
 output:
-  word_document: default
-  pdf_document: default
   html_document: default
 ---
 

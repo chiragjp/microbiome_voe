@@ -1,43 +1,29 @@
----
-title: "MetadataCreation"
-author: "Elizabeth Anderson"
-date: "7/22/2020"
-output: html_document
----
-
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-suppressMessages(library(httr))
 suppressMessages(library(tidyverse))
 suppressMessages(library(readxl))
-suppressMessages(library(BiocFileCache))
-suppressMessages(library(curatedMetagenomicData))
-suppressMessages(library(readxl))
-suppressMessages(library(skimr))
-```
+library(BiocFileCache)
+library(curatedMetagenomicData)
+library(readxl)
+library(skimr)
 
-## Qin Metadata
-The Qin data comes from four separate places. 
-1. The first is through the curatedMetagenomicData package where you pull "QinJ_2012.metaphlan_bugs_list.stool." This provides much of the metadata. 
-2. The second is through http://gigadb.org/ where another paper used this paper and provide an important table which is a mapping between sample data and an SRS acecssion number. 
-3. The third is from the original paper's supplementary materials and provides more metadata such as HDl and LDL. 
-4. The fourth is through a file that is downloaded when you download the microbiome data on the terminal in a file called 'PRJNA422434_metadata.txt'. Since I couldn't find this file on the internet, I hard-coded it into this section and it is the vital mapping between the SRS accession numbers and the SRR accession numbers. 
+# The combined Metadata Excel sheet should:
+#   1. Have a column called "dataset_name" with a reference to the researcher or name of the study associated
+#   2. Have a column named "disease" (where 0 indicates control or lack of T2D, 1 indicates prediabetes, and 2 indicates diabetes)
 
-```{r Qin, echo = TRUE, eval=FALSE}
+main <- function() {
+  ## QIN ###
   # Part 1: From curatedMetagenomic Data
   qin_data_samples <- curatedMetagenomicData("QinJ_2012.metaphlan_bugs_list.stool", dryrun=FALSE)
   qin_data_samples <- pData(qin_data_samples[[1]])
   qin_data_samples <- qin_data_samples %>%
     rename(sampleID = subjectID)
-
+  
   # Part 2, from another paper's supplementary materials
   GET("ftp://parrot.genomics.cn/gigadb/pub/10.5524/100001_101000/100064/gut_microbiome_samples_20140613.xlsx",
       write_disk(tf <- tempfile(fileext = ".xlsx")))
   qin_data_patient <- read_excel(tf, 1L)
   qin_data_patient <- qin_data_patient %>% select(Name, SRASample) %>%
     rename(sampleID = Name)
-
+  
   temp_join <- left_join(qin_data_samples, qin_data_patient, by = "sampleID")
   
   # Part 3, from the supplementary materials of the paper
@@ -47,9 +33,9 @@ The Qin data comes from four separate places.
   supplementary_info <- supplementary_info %>%
     select( "Sample ID":"LDL (mmol/L)") %>%
     rename(sampleID = "Sample ID")
-
+  
   temp_join <- full_join(temp_join, supplementary_info, by = "sampleID")
-
+  
   # Part 4, from the download of the raw data on the terminal
   Qin_key <- tribble(
     ~SRASample, ~SRR,
@@ -423,8 +409,8 @@ The Qin data comes from four separate places.
     "SRS295027", "SRR413771",
     "SRS295028", "SRR413772",
     "SRS295029", "SRR413773"
-    )
-
+  )
+  
   combined_qin <- full_join(temp_join, Qin_key, by= "SRASample")
   
   combined_qin <- combined_qin %>%
@@ -444,22 +430,17 @@ The Qin data comes from four separate places.
   
   qin_curated <- combined_qin %>% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, HDL, LDL, TGL )
   
-```
-
-## Karlsson Metadata 
-The Karlsson metadata comes from two sources. The first one is the supplememtary materials of the paper (https://www.nature.com/articles/nature12198) and contains much more detailed metadata than the the other source. For example, it includes more specific ages and more data about each patient such as Cholesterol levels and HDL. The other source is through the curatedMetageonicData package and it is important because it contains the NCBI accession numbers that let us map the metadata to the microbiome data. The metadata is designated by sampleId's such as S112 and the NCBI accession number is designated by numbers such as ERR349219. 
-
-```{r Karlsson, echo = TRUE, eval=FALSE}
+  ## KARLSSON ## 
   GET("https://static-content.springer.com/esm/art%3A10.1038%2Fnature12198/MediaObjects/41586_2013_BFnature12198_MOESM507_ESM.xlsx", 
       write_disk(tf <- tempfile(fileext = ".xlsx")))
   more_karlsson_data <- read_excel(tf, 1L, skip = 1)
   more_karlsson_data <- more_karlsson_data %>% 
-    mutate(to_merge = rep('S', nrow(more_karlsson_data))) %>%
+    mutate(to_merge = rep("S", nrow(more_karlsson_data))) %>%
     rename(sampleID = "Sample ID") %>%
     unite(sampleID, c("to_merge","sampleID"), sep = "") %>%
     rename(age = "Age (years)") %>%
     filter(!is.na(age)) %>%
-    rename(BMI = 'BMI (kg/m2)') %>%
+    rename(BMI = "BMI (kg/m2)") %>%
     rename(CHOL = "Cholesterol (mmol/L)") %>%
     rename(CR = "Creatinine (µmol/L)") %>%
     rename(HDL = "HDL (mmol/L)") %>%
@@ -467,11 +448,11 @@ The Karlsson metadata comes from two sources. The first one is the supplememtary
     rename(LDL = "LDL (mmol/L)") %>%
     rename(TGL = "Triglycerides (mmol/L)")
   
-
+  
   bugs_list <- curatedMetagenomicData("KarlssonFH_2013.metaphlan_bugs_list.stool", dryrun=FALSE)
   karlsson_data <- pData(bugs_list[[1]])
   karlsson_data <- karlsson_data %>% 
-    mutate(dataset = rep('Karlsson', nrow(karlsson_data))) %>%
+    mutate(dataset = rep("Karlsson", nrow(karlsson_data))) %>%
     rename(PatientID = NCBI_accession) %>%
     rename(sampleID = subjectID) %>% 
     rename(type_of_disease = disease) %>%
@@ -482,57 +463,50 @@ The Karlsson metadata comes from two sources. The first one is the supplememtary
   karlsson_data$disease[karlsson_data$disease == "T2D"] <- 1
   karlsson_data$disease[karlsson_data$disease == "control"] <- 0
   karlsson_data$Ethnicity = karlsson_data$country
-
+  
   karlsson_final <- full_join(more_karlsson_data, karlsson_data, by = "sampleID" )
   karlsson_final <- karlsson_final %>%
     rename(age = age.x)
   
   karlsson_curated <- karlsson_final %>% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )
   
-```
-
-## HMP Metadata 
-The HMP Metadata comes from two sources. One of these sources is through their data hosting website, http://med.stanford.edu/ipop.html, and by looking at clinical tests you can see information about each of the samples taken. For example, what the LDL level at the time of sampling. This was a longitudinal study so each patient had multiple samples. Metadata about each of the patients is given in a different file and it included things such as age, ethnicity, BMI, etc.. In the code below, these two tables are joined and cleaned.  
-
-```{r HMP, echo = TRUE, eval=FALSE}
- # Sample Data
-  sample_data <- read_tsv('https://storage.googleapis.com/gbsc-gcp-project-ipop_public/HMP/clinical_tests/clinical_tests.txt')
+  ## HMP ## 
+  sample_data <- read_tsv("https://storage.googleapis.com/gbsc-gcp-project-ipop_public/HMP/clinical_tests/clinical_tests.txt")
   sample_data$VisitID <- as.character(sample_data$VisitID)
-  sample_data <- sample_data %>% separate(VisitID, into = c('PatientID', "VisitNum"), sep = '-')
+  sample_data <- sample_data %>% separate(VisitID, into = c("PatientID", "VisitNum"), sep = "-")
   
   # Patient Data  
-  GET('https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-019-1236-x/MediaObjects/41586_2019_1236_MOESM3_ESM.xlsx', write_disk(tf <- tempfile(fileext = ".xlsx")))
+  GET("https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-019-1236-x/MediaObjects/41586_2019_1236_MOESM3_ESM.xlsx", write_disk(tf <- tempfile(fileext = ".xlsx")))
   patient_data <- read_excel(tf, 1L)
-  patient_data <- patient_data %>% rename('PatientID' = 'SubjectID')
+  patient_data <- patient_data %>% rename("PatientID" = "SubjectID")
   
   #Combining Patient with Sample Data 
-  combined_HMP_data <- full_join(sample_data, patient_data, by = 'PatientID')
+  combined_HMP_data <- full_join(sample_data, patient_data, by = "PatientID")
   
   # Convert Columns to correct values 
   combined_HMP_data <- combined_HMP_data %>% rename(HDL_old = HDL) %>% 
-                                              mutate(HDL = HDL_old * 0.0555) %>%
-                                              mutate(dataset = rep('HMP', nrow(combined_HMP_data))) %>%
-                                              mutate(country = rep('USA', nrow(combined_HMP_data))) %>%
-                                              rename(sampleID = VisitNum) %>%
-                                              rename(disease = Class)%>%
-                                              rename(age = Adj.age)
+    mutate(HDL = HDL_old * 0.0555) %>%
+    mutate(dataset = rep("HMP", nrow(combined_HMP_data))) %>%
+    mutate(country = rep("USA", nrow(combined_HMP_data))) %>%
+    rename(sampleID = VisitNum) %>%
+    rename(disease = Class)%>%
+    rename(age = Adj.age)
   
   combined_HMP_data$disease[combined_HMP_data$disease == "Diabetic"] <- 1
   combined_HMP_data$disease[combined_HMP_data$disease == "Prediabetic"] <- 1
   combined_HMP_data$disease[combined_HMP_data$disease == "Crossover"] <- 1
   combined_HMP_data$disease[combined_HMP_data$disease == "Control"] <- 0
   
-  final_metadata <- combined_HMP_data %>% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )
-
+  final_HMP <- combined_HMP_data %>% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )
   
-```
-
-
-
-## Bringing it all together
-```{r final pieces, echo = TRUE, eval=FALSE}
+  
+  ## Combining all three datasets together
   final_metadata <- merge(final_HMP, karlsson_curated, all = TRUE)
   final_metadata <- merge(final_metadata, qin_curated, all = TRUE)
   saveRDS(final_metadata, 'final_metadata.rds')
-```
+  
+}
+
+main()
+
 
