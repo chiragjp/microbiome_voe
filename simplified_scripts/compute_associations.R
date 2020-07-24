@@ -176,7 +176,7 @@ main <- function() {
   #args <- c('2020_T2D_Data/metadata.rds', '2020_T2D_Data/t_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
   
   # Example Data 
-  args <- c('Example_Data/CRC_example_modeldfs.rds', 'Example_Data/t_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
+  args <- c('1_prepared_metadata.rds', 'Example_Data/t_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_associations.rds','CRC')
   
   cmd_file <- as_tibble(readRDS(args[[1]]))
   datatype_file <- as_tibble(readRDS(args[[2]]))
@@ -184,6 +184,7 @@ main <- function() {
   phenotype=args[[4]]
   output <- compute_lm_associations(cmd_file, datatype_file,phenotype)
   saveRDS(output, outputname)
+  browser()
 }
 
 main()

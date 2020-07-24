@@ -4,12 +4,59 @@ library(BiocFileCache)
 library(curatedMetagenomicData)
 library(readxl)
 library(skimr)
+library(httr)
 
 # The combined Metadata Excel sheet should:
 #   1. Have a column called "dataset_name" with a reference to the researcher or name of the study associated
 #   2. Have a column named "disease" (where 0 indicates control or lack of T2D, 1 indicates prediabetes, and 2 indicates diabetes)
 
 main <- function() {
+  ## HMP ## 
+  sample_data <- read_tsv("https://storage.googleapis.com/gbsc-gcp-project-ipop_public/HMP/clinical_tests/clinical_tests.txt")
+  sample_data$VisitID <- as.character(sample_data$VisitID)
+  sample_data <- sample_data %>% separate(VisitID, into = c("PatientID", "VisitNum"), sep = "-")
+  
+  sample_data$HSCRP = as.character(sample_data$HSCRP)
+  sample_data$HSCRP <- str_replace(sample_data$HSCRP, "<0.2",  "0")
+  sample_data$HSCRP = as.numeric(sample_data$HSCRP)
+
+  sample_data <- sample_data %>%
+    group_by(PatientID) %>%
+    summarise(CHOL = mean(CHOL), HDL = mean(HDL), LDL = mean(LDL), HSCRP = mean(HSCRP), TGL = mean(TGL), CR = mean(CR))
+  
+  # Patient Data  
+  GET("https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-019-1236-x/MediaObjects/41586_2019_1236_MOESM3_ESM.xlsx", write_disk(tf <- tempfile(fileext = ".xlsx")))
+  patient_data <- read_excel(tf, 1L)
+  patient_data <- patient_data %>% rename("PatientID" = "SubjectID")
+  
+  #Combining Patient with Sample Data 
+  combined_HMP_data <- full_join(sample_data, patient_data, by = "PatientID")
+  
+  # Convert Columns to correct values 
+  combined_HMP_data <- combined_HMP_data %>% 
+    rename(LDL_old = LDL) %>%
+    rename(TGL_old = TGL) %>% 
+    rename(HDL_old = HDL) %>% 
+    rename(CHOL_old = CHOL) %>% 
+    mutate(HDL = HDL_old * 0.0555) %>%
+    mutate(LDL = LDL_old * 0.0555) %>%
+    mutate(TGL = TGL_old * 0.0555) %>%
+    mutate(CHOL = CHOL_old * 0.0555) %>%
+    mutate(dataset = rep("HMP", nrow(combined_HMP_data))) %>%
+    mutate(country = rep("USA", nrow(combined_HMP_data))) %>%
+    mutate(sampleID = rep("NA", nrow(combined_HMP_data))) %>%
+    rename(disease = Class)%>%
+    rename(age = Adj.age)
+  
+  combined_HMP_data$disease[combined_HMP_data$disease == "Diabetic"] <- 1
+  combined_HMP_data$disease[combined_HMP_data$disease == "Prediabetic"] <- 1
+  combined_HMP_data$disease[combined_HMP_data$disease == "Crossover"] <- 1
+  combined_HMP_data$disease[combined_HMP_data$disease == "Control"] <- 0
+  combined_HMP_data$Gender[combined_HMP_data$Gender == "M"] <- "male"
+  combined_HMP_data$Gender[combined_HMP_data$Gender == "F"] <- "female"
+  
+  final_HMP <- combined_HMP_data %>% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )
+  
   ## QIN ###
   # Part 1: From curatedMetagenomic Data
   qin_data_samples <- curatedMetagenomicData("QinJ_2012.metaphlan_bugs_list.stool", dryrun=FALSE)
@@ -419,6 +466,8 @@ main <- function() {
     rename(type_of_disease = disease) %>%
     rename(disease = study_condition) %>%
     rename(CHOL = cholesterol) %>%
+    rename(CHOL_old = CHOL) %>% 
+    mutate(CHOL = CHOL_old * 0.0555) %>%
     rename(HDL = "HDL (mmol/L)") %>%
     rename(LDL =  "LDL (mmol/L)") %>%
     rename(TGL = "TG (mmol/L)")
@@ -470,40 +519,12 @@ main <- function() {
   
   karlsson_curated <- karlsson_final %>% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )
   
-  ## HMP ## 
-  sample_data <- read_tsv("https://storage.googleapis.com/gbsc-gcp-project-ipop_public/HMP/clinical_tests/clinical_tests.txt")
-  sample_data$VisitID <- as.character(sample_data$VisitID)
-  sample_data <- sample_data %>% separate(VisitID, into = c("PatientID", "VisitNum"), sep = "-")
-  
-  # Patient Data  
-  GET("https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-019-1236-x/MediaObjects/41586_2019_1236_MOESM3_ESM.xlsx", write_disk(tf <- tempfile(fileext = ".xlsx")))
-  patient_data <- read_excel(tf, 1L)
-  patient_data <- patient_data %>% rename("PatientID" = "SubjectID")
-  
-  #Combining Patient with Sample Data 
-  combined_HMP_data <- full_join(sample_data, patient_data, by = "PatientID")
-  
-  # Convert Columns to correct values 
-  combined_HMP_data <- combined_HMP_data %>% rename(HDL_old = HDL) %>% 
-    mutate(HDL = HDL_old * 0.0555) %>%
-    mutate(dataset = rep("HMP", nrow(combined_HMP_data))) %>%
-    mutate(country = rep("USA", nrow(combined_HMP_data))) %>%
-    rename(sampleID = VisitNum) %>%
-    rename(disease = Class)%>%
-    rename(age = Adj.age)
-  
-  combined_HMP_data$disease[combined_HMP_data$disease == "Diabetic"] <- 1
-  combined_HMP_data$disease[combined_HMP_data$disease == "Prediabetic"] <- 1
-  combined_HMP_data$disease[combined_HMP_data$disease == "Crossover"] <- 1
-  combined_HMP_data$disease[combined_HMP_data$disease == "Control"] <- 0
-  
-  final_HMP <- combined_HMP_data %>% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )
-  
-  
   ## Combining all three datasets together
   final_metadata <- merge(final_HMP, karlsson_curated, all = TRUE)
   final_metadata <- merge(final_metadata, qin_curated, all = TRUE)
   saveRDS(final_metadata, 'final_metadata.rds')
+  
+  
   
 }
 
