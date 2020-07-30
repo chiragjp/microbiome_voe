@@ -47,6 +47,7 @@ get_summary_stats <- function(input_meta_df, cohort_type, mapping) {
     meta_df <- input_meta_df # skip get_good_metadfs step
     rows=list()
     count=0
+    browser()
     for(x in meta_df){
       count=count+1
       rows[[count]]=nrow(x[[1]])
