@@ -86,8 +86,13 @@ compute_metaanalysis <- function(df) {
 
 main <- function() {
   args <- commandArgs(trailingOnly = TRUE)
+  #args <- c("CRC_example_associations.rds", "CRC_example_meta_analysis.rds", "study_condition" )
+  args <- c("Karlsson_associations.rds","2020_T2D_Data/Karlsson_metaanlysis.rds", "study_condition" )
   association_outputs <- as_tibble(readRDS(args[[1]]))
+  association_outputs <- association_outputs %>%
+    filter(dataset == "Karlsson")
   #check if phenotype has multiple cohorts, if not don't meta-analyze and just filter out failed regressions
+  browser()
   run_metaanalysis = "FALSE"
     if(nrow(association_outputs)>1){
     run_metaanalysis = "TRUE"

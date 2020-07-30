@@ -369,14 +369,430 @@ summary {
 </div>
 
 
-<div id="qin-metadata" class="section level1">
-<h1>Qin Metadata</h1>
+<div id="qin-metadata" class="section level2">
+<h2>Qin Metadata</h2>
 <p>The Qin data comes from four separate places. 1. The first is through the curatedMetagenomicData package where you pull “QinJ_2012.metaphlan_bugs_list.stool.” This provides much of the metadata. 2. The second is through <a href="http://gigadb.org/" class="uri">http://gigadb.org/</a> where another paper used this paper and provide an important table which is a mapping between sample data and an SRS acecssion number. 3. The third is from the original paper’s supplementary materials and provides more metadata such as HDl and LDL. 4. The fourth is through a file that is downloaded when you download the microbiome data on the terminal in a file called ‘PRJNA422434_metadata.txt’. Since I couldn’t find this file on the internet, I hard-coded it into this section and it is the vital mapping between the SRS accession numbers and the SRR accession numbers.</p>
-<pre class="r"><code>  more_qin_data &lt;- curatedMetagenomicData(&quot;QinJ_2012.metaphlan_bugs_list.stool&quot;, dryrun=FALSE)
-  qinDF &lt;- pData(more_qin_data[[1]])</code></pre>
+<pre class="r"><code>  # Part 1: From curatedMetagenomic Data
+  qin_data_samples &lt;- curatedMetagenomicData(&quot;QinJ_2012.metaphlan_bugs_list.stool&quot;, dryrun=FALSE)
+  qin_data_samples &lt;- pData(qin_data_samples[[1]])
+  qin_data_samples &lt;- qin_data_samples %&gt;%
+    rename(sampleID = subjectID)
+
+  # Part 2, from another paper's supplementary materials
+  GET(&quot;ftp://parrot.genomics.cn/gigadb/pub/10.5524/100001_101000/100064/gut_microbiome_samples_20140613.xlsx&quot;,
+      write_disk(tf &lt;- tempfile(fileext = &quot;.xlsx&quot;)))
+  qin_data_patient &lt;- read_excel(tf, 1L)
+  qin_data_patient &lt;- qin_data_patient %&gt;% select(Name, SRASample) %&gt;%
+    rename(sampleID = Name)
+
+  temp_join &lt;- left_join(qin_data_samples, qin_data_patient, by = &quot;sampleID&quot;)
+  
+  # Part 3, from the supplementary materials of the paper
+  GET(&quot;https://static-content.springer.com/esm/art%3A10.1038%2Fnature11450/MediaObjects/41586_2012_BFnature11450_MOESM372_ESM.xls&quot;,
+      write_disk(tf &lt;- tempfile(fileext = &quot;.xls&quot;)))
+  supplementary_info &lt;- read_excel(tf, 2L)
+  supplementary_info &lt;- supplementary_info %&gt;%
+    select( &quot;Sample ID&quot;:&quot;LDL (mmol/L)&quot;) %&gt;%
+    rename(sampleID = &quot;Sample ID&quot;)
+
+  temp_join &lt;- full_join(temp_join, supplementary_info, by = &quot;sampleID&quot;)
+
+  # Part 4, from the download of the raw data on the terminal
+  Qin_key &lt;- tribble(
+    ~SRASample, ~SRR,
+    &quot;SRS333664&quot;, &quot;SRR1778450&quot;,
+    &quot;SRS333665&quot;, &quot;SRR1778451&quot;,
+    &quot;SRS333666&quot;, &quot;SRR1778452&quot;,
+    &quot;SRS333667&quot;, &quot;SRR1778453&quot;,
+    &quot;SRS333668&quot;, &quot;SRR1778454&quot;,
+    &quot;SRS333669&quot;, &quot;SRR1778455&quot;,
+    &quot;SRS333670&quot;, &quot;SRR1778456&quot;,
+    &quot;SRS259434&quot;, &quot;SRR341581&quot;,
+    &quot;SRS259435&quot;, &quot;SRR341582&quot;,
+    &quot;SRS259436&quot;, &quot;SRR341583&quot;,
+    &quot;SRS259437&quot;, &quot;SRR341584&quot;,
+    &quot;SRS259438&quot;, &quot;SRR341585&quot;,
+    &quot;SRS259439&quot;, &quot;SRR341586&quot;,
+    &quot;SRS259440&quot;, &quot;SRR341587&quot;,
+    &quot;SRS259441&quot;, &quot;SRR341588&quot;,
+    &quot;SRS259442&quot;, &quot;SRR341589&quot;,
+    &quot;SRS259443&quot;, &quot;SRR341590&quot;,
+    &quot;SRS259444&quot;, &quot;SRR341591&quot;,
+    &quot;SRS259445&quot;, &quot;SRR341592&quot;,
+    &quot;SRS259446&quot;, &quot;SRR341593&quot;,
+    &quot;SRS259447&quot;, &quot;SRR341594&quot;,
+    &quot;SRS259448&quot;, &quot;SRR341595&quot;,
+    &quot;SRS259449&quot;, &quot;SRR341596&quot;,
+    &quot;SRS259450&quot;, &quot;SRR341597&quot;,
+    &quot;SRS259451&quot;, &quot;SRR341598&quot;,
+    &quot;SRS259452&quot;, &quot;SRR341599&quot;,
+    &quot;SRS259453&quot;, &quot;SRR341600&quot;,
+    &quot;SRS259454&quot;, &quot;SRR341601&quot;,
+    &quot;SRS259455&quot;, &quot;SRR341602&quot;,
+    &quot;SRS259456&quot;, &quot;SRR341603&quot;,
+    &quot;SRS259457&quot;, &quot;SRR341604&quot;,
+    &quot;SRS259458&quot;, &quot;SRR341605&quot;,
+    &quot;SRS259459&quot;, &quot;SRR341606&quot;,
+    &quot;SRS259460&quot;, &quot;SRR341607&quot;,
+    &quot;SRS259461&quot;, &quot;SRR341608&quot;,
+    &quot;SRS259462&quot;, &quot;SRR341609&quot;,
+    &quot;SRS259463&quot;, &quot;SRR341610&quot;,
+    &quot;SRS259464&quot;, &quot;SRR341611&quot;,
+    &quot;SRS259465&quot;, &quot;SRR341612&quot;,
+    &quot;SRS259466&quot;, &quot;SRR341613&quot;,
+    &quot;SRS259467&quot;, &quot;SRR341614&quot;,
+    &quot;SRS259468&quot;, &quot;SRR341615&quot;,
+    &quot;SRS259469&quot;, &quot;SRR341616&quot;,
+    &quot;SRS259470&quot;, &quot;SRR341617&quot;,
+    &quot;SRS259471&quot;, &quot;SRR341618&quot;,
+    &quot;SRS259472&quot;, &quot;SRR341619&quot;,
+    &quot;SRS259473&quot;, &quot;SRR341620&quot;,
+    &quot;SRS259474&quot;, &quot;SRR341621&quot;,
+    &quot;SRS259475&quot;, &quot;SRR341622&quot;,
+    &quot;SRS259476&quot;, &quot;SRR341623&quot;,
+    &quot;SRS259477&quot;, &quot;SRR341624&quot;,
+    &quot;SRS259478&quot;, &quot;SRR341625&quot;,
+    &quot;SRS259479&quot;, &quot;SRR341626&quot;,
+    &quot;SRS259480&quot;, &quot;SRR341627&quot;,
+    &quot;SRS259481&quot;, &quot;SRR341628&quot;,
+    &quot;SRS259482&quot;, &quot;SRR341629&quot;,
+    &quot;SRS259483&quot;, &quot;SRR341630&quot;,
+    &quot;SRS259484&quot;, &quot;SRR341631&quot;,
+    &quot;SRS259485&quot;, &quot;SRR341632&quot;,
+    &quot;SRS259486&quot;, &quot;SRR341633&quot;,
+    &quot;SRS259487&quot;, &quot;SRR341634&quot;,
+    &quot;SRS259488&quot;, &quot;SRR341635&quot;,
+    &quot;SRS259489&quot;, &quot;SRR341636&quot;,
+    &quot;SRS259490&quot;, &quot;SRR341637&quot;,
+    &quot;SRS259491&quot;, &quot;SRR341638&quot;,
+    &quot;SRS259492&quot;, &quot;SRR341639&quot;,
+    &quot;SRS259493&quot;, &quot;SRR341640&quot;,
+    &quot;SRS259494&quot;, &quot;SRR341641&quot;,
+    &quot;SRS259495&quot;, &quot;SRR341642&quot;,
+    &quot;SRS259496&quot;, &quot;SRR341643&quot;,
+    &quot;SRS259497&quot;, &quot;SRR341644&quot;,
+    &quot;SRS259498&quot;, &quot;SRR341645&quot;,
+    &quot;SRS259499&quot;, &quot;SRR341646&quot;,
+    &quot;SRS259500&quot;, &quot;SRR341647&quot;,
+    &quot;SRS259501&quot;, &quot;SRR341648&quot;,
+    &quot;SRS259502&quot;, &quot;SRR341649&quot;,
+    &quot;SRS259503&quot;, &quot;SRR341650&quot;,
+    &quot;SRS259504&quot;, &quot;SRR341651&quot;,
+    &quot;SRS259505&quot;, &quot;SRR341652&quot;,
+    &quot;SRS259506&quot;, &quot;SRR341653&quot;,
+    &quot;SRS259507&quot;, &quot;SRR341654&quot;,
+    &quot;SRS259508&quot;, &quot;SRR341655&quot;,
+    &quot;SRS259509&quot;, &quot;SRR341656&quot;,
+    &quot;SRS259510&quot;, &quot;SRR341657&quot;,
+    &quot;SRS259511&quot;, &quot;SRR341658&quot;,
+    &quot;SRS259512&quot;, &quot;SRR341659&quot;,
+    &quot;SRS259513&quot;, &quot;SRR341660&quot;,
+    &quot;SRS259514&quot;, &quot;SRR341661&quot;,
+    &quot;SRS259515&quot;, &quot;SRR341662&quot;,
+    &quot;SRS259516&quot;, &quot;SRR341663&quot;,
+    &quot;SRS259517&quot;, &quot;SRR341664&quot;,
+    &quot;SRS259518&quot;, &quot;SRR341665&quot;,
+    &quot;SRS259519&quot;, &quot;SRR341666&quot;,
+    &quot;SRS259520&quot;, &quot;SRR341667&quot;,
+    &quot;SRS259521&quot;, &quot;SRR341668&quot;,
+    &quot;SRS259522&quot;, &quot;SRR341669&quot;,
+    &quot;SRS259523&quot;, &quot;SRR341670&quot;,
+    &quot;SRS259524&quot;, &quot;SRR341671&quot;,
+    &quot;SRS259525&quot;, &quot;SRR341672&quot;,
+    &quot;SRS259526&quot;, &quot;SRR341673&quot;,
+    &quot;SRS259527&quot;, &quot;SRR341674&quot;,
+    &quot;SRS259528&quot;, &quot;SRR341675&quot;,
+    &quot;SRS259529&quot;, &quot;SRR341676&quot;,
+    &quot;SRS259530&quot;, &quot;SRR341677&quot;,
+    &quot;SRS259531&quot;, &quot;SRR341678&quot;,
+    &quot;SRS259532&quot;, &quot;SRR341679&quot;,
+    &quot;SRS259533&quot;, &quot;SRR341680&quot;,
+    &quot;SRS259534&quot;, &quot;SRR341681&quot;,
+    &quot;SRS259535&quot;, &quot;SRR341682&quot;,
+    &quot;SRS259536&quot;, &quot;SRR341683&quot;,
+    &quot;SRS259537&quot;, &quot;SRR341684&quot;,
+    &quot;SRS259538&quot;, &quot;SRR341685&quot;,
+    &quot;SRS259539&quot;, &quot;SRR341686&quot;,
+    &quot;SRS259540&quot;, &quot;SRR341687&quot;,
+    &quot;SRS259541&quot;, &quot;SRR341688&quot;,
+    &quot;SRS259542&quot;, &quot;SRR341689&quot;,
+    &quot;SRS259543&quot;, &quot;SRR341690&quot;,
+    &quot;SRS259544&quot;, &quot;SRR341691&quot;,
+    &quot;SRS259545&quot;, &quot;SRR341692&quot;,
+    &quot;SRS259546&quot;, &quot;SRR341693&quot;,
+    &quot;SRS259547&quot;, &quot;SRR341694&quot;,
+    &quot;SRS259548&quot;, &quot;SRR341695&quot;,
+    &quot;SRS259549&quot;, &quot;SRR341696&quot;,
+    &quot;SRS259550&quot;, &quot;SRR341697&quot;,
+    &quot;SRS259551&quot;, &quot;SRR341698&quot;,
+    &quot;SRS259552&quot;, &quot;SRR341699&quot;,
+    &quot;SRS259553&quot;, &quot;SRR341700&quot;,
+    &quot;SRS259554&quot;, &quot;SRR341701&quot;,
+    &quot;SRS259555&quot;, &quot;SRR341702&quot;,
+    &quot;SRS259556&quot;, &quot;SRR341703&quot;,
+    &quot;SRS259557&quot;, &quot;SRR341704&quot;,
+    &quot;SRS259558&quot;, &quot;SRR341705&quot;,
+    &quot;SRS259559&quot;, &quot;SRR341706&quot;,
+    &quot;SRS259560&quot;, &quot;SRR341707&quot;,
+    &quot;SRS259561&quot;, &quot;SRR341708&quot;,
+    &quot;SRS259562&quot;, &quot;SRR341709&quot;,
+    &quot;SRS259563&quot;, &quot;SRR341710&quot;,
+    &quot;SRS259564&quot;, &quot;SRR341711&quot;,
+    &quot;SRS259565&quot;, &quot;SRR341712&quot;,
+    &quot;SRS259566&quot;, &quot;SRR341713&quot;,
+    &quot;SRS259567&quot;, &quot;SRR341714&quot;,
+    &quot;SRS259568&quot;, &quot;SRR341715&quot;,
+    &quot;SRS259569&quot;, &quot;SRR341716&quot;,
+    &quot;SRS259570&quot;, &quot;SRR341717&quot;,
+    &quot;SRS259571&quot;, &quot;SRR341718&quot;,
+    &quot;SRS259572&quot;, &quot;SRR341719&quot;,
+    &quot;SRS259573&quot;, &quot;SRR341720&quot;,
+    &quot;SRS259574&quot;, &quot;SRR341721&quot;,
+    &quot;SRS259575&quot;, &quot;SRR341722&quot;,
+    &quot;SRS259576&quot;, &quot;SRR341723&quot;,
+    &quot;SRS259577&quot;, &quot;SRR341724&quot;,
+    &quot;SRS259578&quot;, &quot;SRR341725&quot;,
+    &quot;SRS294812&quot;, &quot;SRR413556&quot;,
+    &quot;SRS294813&quot;, &quot;SRR413557&quot;,
+    &quot;SRS294814&quot;, &quot;SRR413558&quot;,
+    &quot;SRS294815&quot;, &quot;SRR413559&quot;,
+    &quot;SRS294816&quot;, &quot;SRR413560&quot;,
+    &quot;SRS294817&quot;, &quot;SRR413561&quot;,
+    &quot;SRS294818&quot;, &quot;SRR413562&quot;,
+    &quot;SRS294819&quot;, &quot;SRR413563&quot;,
+    &quot;SRS294820&quot;, &quot;SRR413564&quot;,
+    &quot;SRS294821&quot;, &quot;SRR413565&quot;,
+    &quot;SRS294822&quot;, &quot;SRR413566&quot;,
+    &quot;SRS294823&quot;, &quot;SRR413567&quot;,
+    &quot;SRS294824&quot;, &quot;SRR413568&quot;,
+    &quot;SRS294825&quot;, &quot;SRR413569&quot;,
+    &quot;SRS294826&quot;, &quot;SRR413570&quot;,
+    &quot;SRS294827&quot;, &quot;SRR413571&quot;,
+    &quot;SRS294828&quot;, &quot;SRR413572&quot;,
+    &quot;SRS294829&quot;, &quot;SRR413573&quot;,
+    &quot;SRS294830&quot;, &quot;SRR413574&quot;,
+    &quot;SRS294831&quot;, &quot;SRR413575&quot;,
+    &quot;SRS294832&quot;, &quot;SRR413576&quot;,
+    &quot;SRS294833&quot;, &quot;SRR413577&quot;,
+    &quot;SRS294834&quot;, &quot;SRR413578&quot;,
+    &quot;SRS294835&quot;, &quot;SRR413579&quot;,
+    &quot;SRS294836&quot;, &quot;SRR413580&quot;,
+    &quot;SRS294837&quot;, &quot;SRR413581&quot;,
+    &quot;SRS294838&quot;, &quot;SRR413582&quot;,
+    &quot;SRS294839&quot;, &quot;SRR413583&quot;,
+    &quot;SRS294840&quot;, &quot;SRR413584&quot;,
+    &quot;SRS294841&quot;, &quot;SRR413585&quot;,
+    &quot;SRS294842&quot;, &quot;SRR413586&quot;,
+    &quot;SRS294843&quot;, &quot;SRR413587&quot;,
+    &quot;SRS294844&quot;, &quot;SRR413588&quot;,
+    &quot;SRS294845&quot;, &quot;SRR413589&quot;,
+    &quot;SRS294846&quot;, &quot;SRR413590&quot;,
+    &quot;SRS294847&quot;, &quot;SRR413591&quot;,
+    &quot;SRS294848&quot;, &quot;SRR413592&quot;,
+    &quot;SRS294849&quot;, &quot;SRR413593&quot;,
+    &quot;SRS294850&quot;, &quot;SRR413594&quot;,
+    &quot;SRS294851&quot;, &quot;SRR413595&quot;,
+    &quot;SRS294852&quot;, &quot;SRR413596&quot;,
+    &quot;SRS294853&quot;, &quot;SRR413597&quot;,
+    &quot;SRS294854&quot;, &quot;SRR413598&quot;,
+    &quot;SRS294855&quot;, &quot;SRR413599&quot;,
+    &quot;SRS294856&quot;, &quot;SRR413600&quot;,
+    &quot;SRS294857&quot;, &quot;SRR413601&quot;,
+    &quot;SRS294858&quot;, &quot;SRR413602&quot;,
+    &quot;SRS294859&quot;, &quot;SRR413603&quot;,
+    &quot;SRS294860&quot;, &quot;SRR413604&quot;,
+    &quot;SRS294861&quot;, &quot;SRR413605&quot;,
+    &quot;SRS294862&quot;, &quot;SRR413606&quot;,
+    &quot;SRS294863&quot;, &quot;SRR413607&quot;,
+    &quot;SRS294864&quot;, &quot;SRR413608&quot;,
+    &quot;SRS294865&quot;, &quot;SRR413609&quot;,
+    &quot;SRS294866&quot;, &quot;SRR413610&quot;,
+    &quot;SRS294867&quot;, &quot;SRR413611&quot;,
+    &quot;SRS294868&quot;, &quot;SRR413612&quot;,
+    &quot;SRS294869&quot;, &quot;SRR413613&quot;,
+    &quot;SRS294870&quot;, &quot;SRR413614&quot;,
+    &quot;SRS294871&quot;, &quot;SRR413615&quot;,
+    &quot;SRS294872&quot;, &quot;SRR413616&quot;,
+    &quot;SRS294873&quot;, &quot;SRR413617&quot;,
+    &quot;SRS294874&quot;, &quot;SRR413618&quot;,
+    &quot;SRS294875&quot;, &quot;SRR413619&quot;,
+    &quot;SRS294876&quot;, &quot;SRR413620&quot;,
+    &quot;SRS294877&quot;, &quot;SRR413621&quot;,
+    &quot;SRS294878&quot;, &quot;SRR413622&quot;,
+    &quot;SRS294879&quot;, &quot;SRR413623&quot;,
+    &quot;SRS294880&quot;, &quot;SRR413624&quot;,
+    &quot;SRS294881&quot;, &quot;SRR413625&quot;,
+    &quot;SRS294882&quot;, &quot;SRR413626&quot;,
+    &quot;SRS294883&quot;, &quot;SRR413627&quot;,
+    &quot;SRS294884&quot;, &quot;SRR413628&quot;,
+    &quot;SRS294885&quot;, &quot;SRR413629&quot;,
+    &quot;SRS294886&quot;, &quot;SRR413630&quot;,
+    &quot;SRS294887&quot;, &quot;SRR413631&quot;,
+    &quot;SRS294888&quot;, &quot;SRR413632&quot;,
+    &quot;SRS294889&quot;, &quot;SRR413633&quot;,
+    &quot;SRS294890&quot;, &quot;SRR413634&quot;,
+    &quot;SRS294891&quot;, &quot;SRR413635&quot;,
+    &quot;SRS294892&quot;, &quot;SRR413636&quot;,
+    &quot;SRS294893&quot;, &quot;SRR413637&quot;,
+    &quot;SRS294894&quot;, &quot;SRR413638&quot;,
+    &quot;SRS294895&quot;, &quot;SRR413639&quot;,
+    &quot;SRS294896&quot;, &quot;SRR413640&quot;,
+    &quot;SRS294897&quot;, &quot;SRR413641&quot;,
+    &quot;SRS294898&quot;, &quot;SRR413642&quot;,
+    &quot;SRS294899&quot;, &quot;SRR413643&quot;,
+    &quot;SRS294900&quot;, &quot;SRR413644&quot;,
+    &quot;SRS294901&quot;, &quot;SRR413645&quot;,
+    &quot;SRS294902&quot;, &quot;SRR413646&quot;,
+    &quot;SRS294903&quot;, &quot;SRR413647&quot;,
+    &quot;SRS294904&quot;, &quot;SRR413648&quot;,
+    &quot;SRS294905&quot;, &quot;SRR413649&quot;,
+    &quot;SRS294906&quot;, &quot;SRR413650&quot;,
+    &quot;SRS294907&quot;, &quot;SRR413651&quot;,
+    &quot;SRS294908&quot;, &quot;SRR413652&quot;,
+    &quot;SRS294909&quot;, &quot;SRR413653&quot;,
+    &quot;SRS294910&quot;, &quot;SRR413654&quot;,
+    &quot;SRS294911&quot;, &quot;SRR413655&quot;,
+    &quot;SRS294912&quot;, &quot;SRR413656&quot;,
+    &quot;SRS294913&quot;, &quot;SRR413657&quot;,
+    &quot;SRS294914&quot;, &quot;SRR413658&quot;,
+    &quot;SRS294915&quot;, &quot;SRR413659&quot;,
+    &quot;SRS294916&quot;, &quot;SRR413660&quot;,
+    &quot;SRS294917&quot;, &quot;SRR413661&quot;,
+    &quot;SRS294918&quot;, &quot;SRR413662&quot;,
+    &quot;SRS294919&quot;, &quot;SRR413663&quot;,
+    &quot;SRS294920&quot;, &quot;SRR413664&quot;,
+    &quot;SRS294921&quot;, &quot;SRR413665&quot;,
+    &quot;SRS294922&quot;, &quot;SRR413666&quot;,
+    &quot;SRS294923&quot;, &quot;SRR413667&quot;,
+    &quot;SRS294924&quot;, &quot;SRR413668&quot;,
+    &quot;SRS294925&quot;, &quot;SRR413669&quot;,
+    &quot;SRS294926&quot;, &quot;SRR413670&quot;,
+    &quot;SRS294927&quot;, &quot;SRR413671&quot;,
+    &quot;SRS294928&quot;, &quot;SRR413672&quot;,
+    &quot;SRS294929&quot;, &quot;SRR413673&quot;,
+    &quot;SRS294930&quot;, &quot;SRR413674&quot;,
+    &quot;SRS294931&quot;, &quot;SRR413675&quot;,
+    &quot;SRS294932&quot;, &quot;SRR413676&quot;,
+    &quot;SRS294933&quot;, &quot;SRR413677&quot;,
+    &quot;SRS294934&quot;, &quot;SRR413678&quot;,
+    &quot;SRS294935&quot;, &quot;SRR413679&quot;,
+    &quot;SRS294936&quot;, &quot;SRR413680&quot;,
+    &quot;SRS294937&quot;, &quot;SRR413681&quot;,
+    &quot;SRS294938&quot;, &quot;SRR413682&quot;,
+    &quot;SRS294939&quot;, &quot;SRR413683&quot;,
+    &quot;SRS294940&quot;, &quot;SRR413684&quot;,
+    &quot;SRS294941&quot;, &quot;SRR413685&quot;,
+    &quot;SRS294942&quot;, &quot;SRR413686&quot;,
+    &quot;SRS294943&quot;, &quot;SRR413687&quot;,
+    &quot;SRS294944&quot;, &quot;SRR413688&quot;,
+    &quot;SRS294945&quot;, &quot;SRR413689&quot;,
+    &quot;SRS294946&quot;, &quot;SRR413690&quot;,
+    &quot;SRS294947&quot;, &quot;SRR413691&quot;,
+    &quot;SRS294948&quot;, &quot;SRR413692&quot;,
+    &quot;SRS294949&quot;, &quot;SRR413693&quot;,
+    &quot;SRS294950&quot;, &quot;SRR413694&quot;,
+    &quot;SRS294951&quot;, &quot;SRR413695&quot;,
+    &quot;SRS294952&quot;, &quot;SRR413696&quot;,
+    &quot;SRS294953&quot;, &quot;SRR413697&quot;,
+    &quot;SRS294954&quot;, &quot;SRR413698&quot;,
+    &quot;SRS294955&quot;, &quot;SRR413699&quot;,
+    &quot;SRS294956&quot;, &quot;SRR413700&quot;,
+    &quot;SRS294957&quot;, &quot;SRR413701&quot;,
+    &quot;SRS294958&quot;, &quot;SRR413702&quot;,
+    &quot;SRS294959&quot;, &quot;SRR413703&quot;,
+    &quot;SRS294960&quot;, &quot;SRR413704&quot;,
+    &quot;SRS294961&quot;, &quot;SRR413705&quot;,
+    &quot;SRS294962&quot;, &quot;SRR413706&quot;,
+    &quot;SRS294963&quot;, &quot;SRR413707&quot;,
+    &quot;SRS294964&quot;, &quot;SRR413708&quot;,
+    &quot;SRS294965&quot;, &quot;SRR413709&quot;,
+    &quot;SRS294966&quot;, &quot;SRR413710&quot;,
+    &quot;SRS294967&quot;, &quot;SRR413711&quot;,
+    &quot;SRS294968&quot;, &quot;SRR413712&quot;,
+    &quot;SRS294969&quot;, &quot;SRR413713&quot;,
+    &quot;SRS294970&quot;, &quot;SRR413714&quot;,
+    &quot;SRS294971&quot;, &quot;SRR413715&quot;,
+    &quot;SRS294972&quot;, &quot;SRR413716&quot;,
+    &quot;SRS294973&quot;, &quot;SRR413717&quot;,
+    &quot;SRS294974&quot;, &quot;SRR413718&quot;,
+    &quot;SRS294975&quot;, &quot;SRR413719&quot;,
+    &quot;SRS294976&quot;, &quot;SRR413720&quot;,
+    &quot;SRS294977&quot;, &quot;SRR413721&quot;,
+    &quot;SRS294978&quot;, &quot;SRR413722&quot;,
+    &quot;SRS294979&quot;, &quot;SRR413723&quot;,
+    &quot;SRS294980&quot;, &quot;SRR413724&quot;,
+    &quot;SRS294981&quot;, &quot;SRR413725&quot;,
+    &quot;SRS294982&quot;, &quot;SRR413726&quot;,
+    &quot;SRS294983&quot;, &quot;SRR413727&quot;,
+    &quot;SRS294984&quot;, &quot;SRR413728&quot;,
+    &quot;SRS294985&quot;, &quot;SRR413729&quot;,
+    &quot;SRS294986&quot;, &quot;SRR413730&quot;,
+    &quot;SRS294987&quot;, &quot;SRR413731&quot;,
+    &quot;SRS294988&quot;, &quot;SRR413732&quot;,
+    &quot;SRS294989&quot;, &quot;SRR413733&quot;,
+    &quot;SRS294990&quot;, &quot;SRR413734&quot;,
+    &quot;SRS294991&quot;, &quot;SRR413735&quot;,
+    &quot;SRS294992&quot;, &quot;SRR413736&quot;,
+    &quot;SRS294993&quot;, &quot;SRR413737&quot;,
+    &quot;SRS294994&quot;, &quot;SRR413738&quot;,
+    &quot;SRS294995&quot;, &quot;SRR413739&quot;,
+    &quot;SRS294996&quot;, &quot;SRR413740&quot;,
+    &quot;SRS294997&quot;, &quot;SRR413741&quot;,
+    &quot;SRS294998&quot;, &quot;SRR413742&quot;,
+    &quot;SRS294999&quot;, &quot;SRR413743&quot;,
+    &quot;SRS295000&quot;, &quot;SRR413744&quot;,
+    &quot;SRS295001&quot;, &quot;SRR413745&quot;,
+    &quot;SRS295002&quot;, &quot;SRR413746&quot;,
+    &quot;SRS295003&quot;, &quot;SRR413747&quot;,
+    &quot;SRS295004&quot;, &quot;SRR413748&quot;,
+    &quot;SRS295005&quot;, &quot;SRR413749&quot;,
+    &quot;SRS295006&quot;, &quot;SRR413750&quot;,
+    &quot;SRS295007&quot;, &quot;SRR413751&quot;,
+    &quot;SRS295008&quot;, &quot;SRR413752&quot;,
+    &quot;SRS295009&quot;, &quot;SRR413753&quot;,
+    &quot;SRS295010&quot;, &quot;SRR413754&quot;,
+    &quot;SRS295011&quot;, &quot;SRR413755&quot;,
+    &quot;SRS295012&quot;, &quot;SRR413756&quot;,
+    &quot;SRS295013&quot;, &quot;SRR413757&quot;,
+    &quot;SRS295014&quot;, &quot;SRR413758&quot;,
+    &quot;SRS295015&quot;, &quot;SRR413759&quot;,
+    &quot;SRS295016&quot;, &quot;SRR413760&quot;,
+    &quot;SRS295017&quot;, &quot;SRR413761&quot;,
+    &quot;SRS295018&quot;, &quot;SRR413762&quot;,
+    &quot;SRS295019&quot;, &quot;SRR413763&quot;,
+    &quot;SRS295020&quot;, &quot;SRR413764&quot;,
+    &quot;SRS295021&quot;, &quot;SRR413765&quot;,
+    &quot;SRS295022&quot;, &quot;SRR413766&quot;,
+    &quot;SRS295023&quot;, &quot;SRR413767&quot;,
+    &quot;SRS295024&quot;, &quot;SRR413768&quot;,
+    &quot;SRS295025&quot;, &quot;SRR413769&quot;,
+    &quot;SRS295026&quot;, &quot;SRR413770&quot;,
+    &quot;SRS295027&quot;, &quot;SRR413771&quot;,
+    &quot;SRS295028&quot;, &quot;SRR413772&quot;,
+    &quot;SRS295029&quot;, &quot;SRR413773&quot;
+    )
+
+  combined_qin &lt;- full_join(temp_join, Qin_key, by= &quot;SRASample&quot;)
+  
+  combined_qin &lt;- combined_qin %&gt;%
+    rename(PatientID = 'SRR') %&gt;%
+    mutate(dataset = rep(&quot;Qin&quot;, nrow(combined_qin))) %&gt;%
+    rename(type_of_disease = disease) %&gt;%
+    rename(disease = study_condition) %&gt;%
+    rename(CHOL = cholesterol) %&gt;%
+    rename(HDL = &quot;HDL (mmol/L)&quot;) %&gt;%
+    rename(LDL =  &quot;LDL (mmol/L)&quot;) %&gt;%
+    rename(TGL = &quot;TG (mmol/L)&quot;)
+  
+  combined_qin$disease[combined_qin$disease == &quot;IGT&quot;] &lt;- 1
+  combined_qin$disease[combined_qin$disease == &quot;T2D&quot;] &lt;- 1
+  combined_qin$disease[combined_qin$disease == &quot;control&quot;] &lt;- 0
+  combined_qin$Ethnicity = combined_qin$country
+  
+  qin_curated &lt;- combined_qin %&gt;% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, HDL, LDL, TGL )</code></pre>
 </div>
-<div id="karlsson-metadata" class="section level1">
-<h1>Karlsson Metadata</h1>
+<div id="karlsson-metadata" class="section level2">
+<h2>Karlsson Metadata</h2>
 <p>The Karlsson metadata comes from two sources. The first one is the supplememtary materials of the paper (<a href="https://www.nature.com/articles/nature12198" class="uri">https://www.nature.com/articles/nature12198</a>) and contains much more detailed metadata than the the other source. For example, it includes more specific ages and more data about each patient such as Cholesterol levels and HDL. The other source is through the curatedMetageonicData package and it is important because it contains the NCBI accession numbers that let us map the metadata to the microbiome data. The metadata is designated by sampleId’s such as S112 and the NCBI accession number is designated by numbers such as ERR349219.</p>
 <pre class="r"><code>  GET(&quot;https://static-content.springer.com/esm/art%3A10.1038%2Fnature12198/MediaObjects/41586_2013_BFnature12198_MOESM507_ESM.xlsx&quot;, 
       write_disk(tf &lt;- tempfile(fileext = &quot;.xlsx&quot;)))
@@ -417,41 +833,60 @@ summary {
   
   karlsson_curated &lt;- karlsson_final %&gt;% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )</code></pre>
 </div>
-<div id="hmp-metadata" class="section level1">
-<h1>HMP Metadata</h1>
-<p>The HMP Metadata comes from two sources. One of these sources is through their data hosting website, <a href="http://med.stanford.edu/ipop.html" class="uri">http://med.stanford.edu/ipop.html</a>, and by looking at clinical tests you can see information about each of the samples taken. For example, what the LDL level at the time of sampling. This was a longitudinal study so each patient had multiple samples. Metadata about each of the patients is given in a different file and it included things such as age, ethnicity, BMI, etc.. In the code below, these two tables are joined and cleaned.</p>
+<div id="hmp-metadata" class="section level2">
+<h2>HMP Metadata</h2>
+<p>The HMP Metadata comes from two sources. One of these sources is through their data hosting website, <a href="http://med.stanford.edu/ipop.html" class="uri">http://med.stanford.edu/ipop.html</a>, and by looking at clinical tests you can see information about each of the samples taken. For example, you can find what the LDL level at the time of sampling. This was a longitudinal study so each patient had multiple samples. Metadata about each of the patients is given in a different file and it included things such as age, ethnicity, BMI, etc.. In the code below, these two tables are joined and cleaned.</p>
 <pre class="r"><code> # Sample Data
-  sample_data &lt;- read_tsv('https://storage.googleapis.com/gbsc-gcp-project-ipop_public/HMP/clinical_tests/clinical_tests.txt')
+  sample_data &lt;- read_tsv(&quot;https://storage.googleapis.com/gbsc-gcp-project-ipop_public/HMP/clinical_tests/clinical_tests.txt&quot;)
   sample_data$VisitID &lt;- as.character(sample_data$VisitID)
-  sample_data &lt;- sample_data %&gt;% separate(VisitID, into = c('PatientID', &quot;VisitNum&quot;), sep = '-')
+  sample_data &lt;- sample_data %&gt;% separate(VisitID, into = c(&quot;PatientID&quot;, &quot;VisitNum&quot;), sep = &quot;-&quot;)
+  
+  sample_data$HSCRP = as.character(sample_data$HSCRP)
+  sample_data$HSCRP &lt;- str_replace(sample_data$HSCRP, &quot;&lt;0.2&quot;,  &quot;0&quot;)
+  sample_data$HSCRP = as.numeric(sample_data$HSCRP)
+
+  sample_data &lt;- sample_data %&gt;%
+    group_by(PatientID) %&gt;%
+    summarise(CHOL = mean(CHOL), HDL = mean(HDL), LDL = mean(LDL), HSCRP = mean(HSCRP), TGL = mean(TGL), CR = mean(CR))
   
   # Patient Data  
-  GET('https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-019-1236-x/MediaObjects/41586_2019_1236_MOESM3_ESM.xlsx', write_disk(tf &lt;- tempfile(fileext = &quot;.xlsx&quot;)))
+  GET(&quot;https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-019-1236-x/MediaObjects/41586_2019_1236_MOESM3_ESM.xlsx&quot;, write_disk(tf &lt;- tempfile(fileext = &quot;.xlsx&quot;)))
   patient_data &lt;- read_excel(tf, 1L)
-  patient_data &lt;- patient_data %&gt;% rename('PatientID' = 'SubjectID')
+  patient_data &lt;- patient_data %&gt;% rename(&quot;PatientID&quot; = &quot;SubjectID&quot;)
   
   #Combining Patient with Sample Data 
-  combined_HMP_data &lt;- full_join(sample_data, patient_data, by = 'PatientID')
+  combined_HMP_data &lt;- full_join(sample_data, patient_data, by = &quot;PatientID&quot;)
   
   # Convert Columns to correct values 
-  combined_HMP_data &lt;- combined_HMP_data %&gt;% rename(HDL_old = HDL) %&gt;% 
-                                              mutate(HDL = HDL_old * 0.0555) %&gt;%
-                                              mutate(dataset = rep('HMP', nrow(combined_HMP_data))) %&gt;%
-                                              mutate(country = rep('USA', nrow(combined_HMP_data))) %&gt;%
-                                              rename(sampleID = VisitNum) %&gt;%
-                                              rename(disease = Class)%&gt;%
-                                              rename(age = Adj.age)
+  combined_HMP_data &lt;- combined_HMP_data %&gt;% 
+    rename(LDL_old = LDL) %&gt;%
+    rename(TGL_old = TGL) %&gt;% 
+    rename(HDL_old = HDL) %&gt;% 
+    rename(CHOL_old = CHOL) %&gt;% 
+    mutate(HDL = HDL_old * 0.0555) %&gt;%
+    mutate(LDL = LDL_old * 0.0555) %&gt;%
+    mutate(TGL = TGL_old * 0.0555) %&gt;%
+    mutate(CHOL = CHOL_old * 0.0555) %&gt;%
+    mutate(dataset = rep(&quot;HMP&quot;, nrow(combined_HMP_data))) %&gt;%
+    mutate(country = rep(&quot;USA&quot;, nrow(combined_HMP_data))) %&gt;%
+    mutate(sampleID = rep(&quot;NA&quot;, nrow(combined_HMP_data))) %&gt;%
+    rename(disease = Class)%&gt;%
+    rename(age = Adj.age)
   
   combined_HMP_data$disease[combined_HMP_data$disease == &quot;Diabetic&quot;] &lt;- 1
   combined_HMP_data$disease[combined_HMP_data$disease == &quot;Prediabetic&quot;] &lt;- 1
   combined_HMP_data$disease[combined_HMP_data$disease == &quot;Crossover&quot;] &lt;- 1
   combined_HMP_data$disease[combined_HMP_data$disease == &quot;Control&quot;] &lt;- 0
+  combined_HMP_data$Gender[combined_HMP_data$Gender == &quot;M&quot;] &lt;- &quot;male&quot;
+  combined_HMP_data$Gender[combined_HMP_data$Gender == &quot;F&quot;] &lt;- &quot;female&quot;
   
-  final_metadata &lt;- combined_HMP_data %&gt;% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )</code></pre>
-<div id="bringing-it-all-together" class="section level3">
-<h3>Bringing it all together</h3>
-<pre class="r"><code>  final_metadata &lt;- merge(final_HMP, karlsson_curated)</code></pre>
+  final_HMP &lt;- combined_HMP_data %&gt;% select(dataset, PatientID, sampleID, disease, age, Gender, country, Ethnicity, BMI, CHOL, CR, HDL, HSCRP, LDL, TGL )</code></pre>
 </div>
+<div id="bringing-it-all-together" class="section level2">
+<h2>Bringing it all together</h2>
+<pre class="r"><code>  final_metadata &lt;- merge(final_HMP, karlsson_curated, all = TRUE)
+  final_metadata &lt;- merge(final_metadata, qin_curated, all = TRUE)
+  saveRDS(final_metadata, 'final_metadata.rds')</code></pre>
 </div>
 
 

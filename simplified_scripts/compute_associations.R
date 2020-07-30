@@ -63,12 +63,9 @@ compute_lm_associations <- function(df, metaphlan_df,phenotype){
     # adding 1 feature, fitting, and tidying summary
     new_feature_name <- colnames(metaphlan_df %>% select(-1, -2) %>% select(j))
     print(str_c("feature no.: ", new_feature_name)) # print feature no. currently working on
-    
     df %<>% mutate(new_feature = map(df$model_selected_df, function(x)
       if (compute_microbial_feature_proportions_helper(x, metaphlan_df, j) > 0) { # prorportion must be non-zero or else no response to model
-        
         regression_df=left_join(as.data.frame(x) %>% mutate_if(is.factor, as.character), metaphlan_df %>% mutate(dataset_name=str_replace(dataset_name, "gene_families_", "")) %>% select(c(1,2, (j + 2))),by = c("dataset_name", "sampleID")) %>% select(-dataset_name) %>% mutate_if(is.character, as.factor) %>% drop_na()
-        
         ################averaging logic
         subnum=length(unique(regression_df$subjectID))
         samnum=length(unique(regression_df$sampleID))
@@ -165,7 +162,7 @@ compute_lm_associations <- function(df, metaphlan_df,phenotype){
         )
       }
     )
-    )
+    ) 
     colnames(df)[length(colnames(df))] <- paste0("feature_", toString(new_feature_name)) # last step to rename feature to desired variable input name
   }
   return(df)
@@ -173,18 +170,18 @@ compute_lm_associations <- function(df, metaphlan_df,phenotype){
 
 main <- function() {
   #2020 T2D Data
-  #args <- c('2020_T2D_Data/metadata.rds', '2020_T2D_Data/t_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
+  #args <- c('Example_Data/CRC_Example_modeldfs.rds', 'Example_Data/t_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_example_associations.rds','CRC')
   
   # Example Data 
-  args <- c('1_prepared_metadata.rds', 'Example_Data/t_metaphlan_abundance_cmd_example_CRC.rds', 'CRC_associations.rds','CRC')
-  
+  args <- c('1_prepared_metadata.rds', '2020_T2D_Data/abundance_data.rds', 'Karlsson_associations.rds','CRC')
+  #args <- commandArgs(trailingOnly = TRUE)
   cmd_file <- as_tibble(readRDS(args[[1]]))
+  cmd_file <- cmd_file %>% filter(dataset == 'Karlsson')
   datatype_file <- as_tibble(readRDS(args[[2]]))
   outputname <- args[[3]]
   phenotype=args[[4]]
   output <- compute_lm_associations(cmd_file, datatype_file,phenotype)
   saveRDS(output, outputname)
-  browser()
 }
 
 main()
