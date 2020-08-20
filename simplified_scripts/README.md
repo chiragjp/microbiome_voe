@@ -5,7 +5,7 @@ This simplified scripts folder was used to simplify the voe pipeline for a study
 3. Additional_Help_documents is a folder that contains some Word files that explain a few of the trickier R scripts. It breaks down what the inputs and outputs are, as well as what some of the tricker functions and lines of code do. 
 
 
-# Type 2 Diabetes Extra Information
+#2020 Type 2 Diabetes Extra Information
 
 You can learn more about the three cohorts studied at these links: 
 - Qin data: https://www.nature.com/articles/nature11450
