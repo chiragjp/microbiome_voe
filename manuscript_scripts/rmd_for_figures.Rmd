@@ -277,10 +277,6 @@ for(f in files){
         if(outplot!=''){
           ggsave(outputName,plot=outplot,height=6,width=6,units='in')
         }
-      #generate summary statistics
-     # voe_adjust=get_adjuster_expanded_vibrations(voe,feat)
-    #  adjusters=get_all_adjusters(voe_adjust,feat)
-     # create adjuster plots
         if(folder == 'T1D' | folder == 'T2D'){
       system(paste('mkdir ',folder,'/adjusted',sep=''))
       if(folder == 'T2D'){
@@ -320,9 +316,6 @@ plot_confounders <- function(estimate,pval,ptype){
   names(vals)=voe_adjust_for_reg_ptype$color
   ggplot(voe_adjust_for_reg_ptype,aes(x=reorder(term, estimate),y=estimate,fill=color)) +geom_bar(stat='identity',width=.9) + coord_flip() + xlab('') + ylab('Change in model effect size')+ggtitle(ptype)+geom_errorbar(aes(ymin =sdmin,ymax=sdmax,width=.9))+ theme(plot.title = element_text(size=20))+theme(axis.text = element_text(size=16))+scale_fill_manual(values=vals)+theme(legend.position = 'none')
   ggsave(paste('estimate_confounders_',ptype,'.pdf',sep=''),units='in')
-  #voe_adjust_for_reg_ptype <- pval %>%  select(-group) %>% drop_na() %>% filter(term!='(Intercept)' & term!='statistic' & term!='X' & term!='std.error' ) %>% select_if(~ length(unique(.)) > 1) 
-  #ggplot(voe_adjust_for_reg_ptype,aes(x=reorder(term, voe_adjust_for_reg_ptype$estimate),y=estimate)) +geom_bar(stat='identity') + coord_flip() + xlab('') + ylab('Change in p-value')+ggtitle(paste('Effects of confounders of on microbiome-',ptype,' association p-values',sep=''))+geom_errorbar(aes(ymin =sdmin,ymax=sdmax))+ theme(plot.title = element_text(size=10))+theme(axis.text = element_text(size=8))+theme(legend.position = 'none')
-  #ggsave(paste('pvalue_confounders_',ptype,'.pdf',sep=''),height=4,width=9,units='in')
 return( ggplot(voe_adjust_for_reg_ptype,aes(x=reorder(term, estimate),y=estimate,fill=color)) +geom_bar(stat='identity') + coord_flip() + xlab('') + ylab('Change in model effect size')+ggtitle(ptype)+geom_errorbar(aes(ymin =sdmin,ymax=sdmax))+ theme(plot.title = element_text(size=12))+theme(axis.text = element_text(size=10))+scale_fill_manual(values=vals)+theme(legend.position = 'none'))
 }
 
@@ -347,23 +340,12 @@ for(p in phenotypes){
   print(p)
   e = readRDS(files1) %>% select(term,estimate,std.error,sdmin,sdmax) %>% drop_na()
   print(e)
-  #e[2:5] = mapply('/', e[2:5], unname(unlist(e[1,2:5])))
-#  pv=readRDS(files2)
   e = e %>% filter(!grepl('filename',term))
   e = left_join(e,colormap,by=c('term'='colgroup'))%>% mutate(color=term)
   e$color[is.na(e$col_vector)]='Other'
   e$col_vector[is.na(e$col_vector)]='#808080'
- # pv = left_join(pv,colormap,by=c('term'='colgroup')) %>% mutate(color=term)
-#  pv$color[is.na(pv$col_vector)]='Other'
-#  pv$col_vector[is.na(pv$col_vector)]='#808080'
   estimates[[p]]=e %>% select(term,estimate,std.error,sdmin,sdmax,color,col_vector) %>% drop_na() %>% mutate(phenotype=p) %>% filter(term!='(Intercept)' & term!='statistic' & term!='X' & term!='std.error' )
-#  pvalues[[p]]=pv %>% select(term,estimate,std.error,sdmin,sdmax,color,col_vector) %>% drop_na() %>% mutate(phenotype=p) %>% filter(term!='(Intercept)' & term!='statistic' & term!='X' & term!='std.error' )
-  #if(p=='IGI'){
-   # outplots[[p]]=plot_confounders_IGI(e,pv,p) 
-  #}
-  #else{
     outplots[[p]]=plot_confounders(e,pv,p)  
-  #}
 }
 
 estimates=bind_rows(estimates)
@@ -589,10 +571,6 @@ features = pathways$feature_name
 pathways_all[pathways_all!=0] = 1
 pathways_all$feature_name = features
 
-#for(m in missing){
-#  pathways_all[,m]=0
-#}
-
 genefamilies_all = genefamilies %>% select(-feature_name)
 missing = setdiff(phenotypes, colnames(genefamilies_all))
 features = genefamilies$feature_name
@@ -602,41 +580,10 @@ genefamilies_all$feature_name = features
 for (m in missing) {
 genefamilies_all[, m] = 0
 }
-#species_positive = species %>% filter_at(vars(-feature_name),all_vars(. > 0 | is.na(.)))
-#features=species_positive$feature_name
-#species_positive[species_positive>0]=1
-#species_positive[is.na(species_positive)]=0
-#species_positive$feature_name=features
-
-#pathways_positive = pathways %>% filter_at(vars(-feature_name),all_vars(. > 0 | is.na(.)))
-#features=pathways_positive$feature_name
-#pathways_positive[pathways_positive>0]=1
-#pathways_positive[is.na(pathways_positive)]=0
-#pathways_positive$feature_name=features
-
-#species_negative = species %>% filter_at(vars(-feature_name),all_vars(. < 0 | is.na(.)))
-#features=species_negative$feature_name
-#species_negative[species_negative<0]=1
-#species_negative[is.na(species_negative)]=0
-#species_negative$feature_name=features
-
-#pathways_negative = pathways %>% filter_at(vars(-feature_name),all_vars(. < 0 | is.na(.)))
-#features=pathways_negative$feature_name
-#pathways_negative[pathways_negative<0]=1
-#pathways_negative[is.na(pathways_negative)]=0
-#pathways_negative$feature_name=features
 
 species_conserved = species %>% filter_at(vars(-feature_name), all_vars(!is.na(.)))
 pathways_conserved = pathways %>% filter_at(vars(-feature_name), all_vars(!is.na(.)))
 genefamilies_conserved = genefamilies %>% filter_at(vars(-feature_name), all_vars(!is.na(.)))
-
-#upset(data.frame(species_all),nsets = 20)
-#upset(data.frame(pathways_all),nsets = 20)
-#upset(data.frame(genefamilies_all),nsets = 20)
-#upset(data.frame(species_positive),nsets = 8)
-#upset(data.frame(pathways_positive),nsets = 8)
-#upset(data.frame(species_negative),nsets = 8)
-#upset(data.frame(pathways_negative),nsets = 8)
 
 pdf(paste('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/',tag,'_upset_plot_species.pdf'),width=9,height=5,onefile = FALSE)
 print(upset(data.frame(species_all), nsets = 20))
@@ -742,155 +689,10 @@ disagree[,2:ncol(disagree)][disagree[2:ncol(disagree)]<0] = -1
 disagree = disagree %>% mutate(sumcheck=abs(rowSums(disagree %>% select(-feature_name))),total=rowSums(disagree %>% select(-feature_name)!=0)) %>% filter(sumcheck!=total) %>% select(-sumcheck,-total)
 
 write.csv(ma_vib_output1,'~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/je_filter_all_associations.csv')
-#plot_overlaps(ma_vib_output2,'je_er75')
-#plot_overlaps(ma_vib_output3,'je_er50')
-#plot_overlaps(ma_vib_output4,'je_er75')
-#plot_overlaps(ma_vib_output5,'je_er25')
-#plot_overlaps(ma_vib_output5,'je_er1')
-
-```
-
-```{r}
-#lit review analysis
-
-litvibs=read.csv('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/vibration_choices_literature.csv',stringsAsFactors = FALSE,sep=',')
-
-setwd('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/')
-
-#files=list.files()
-#files=files[grep('rds',files)]
-#files=files[grep('merged',files)]
-##files=files[-grep('conserved',files)]
-#files=files[-grep('merged_vibration_data.rds',files)]
-#files=files[-grep('merged_vibration_data_T2D.rds',files)]
-#files=files[-grep('single',files)]
-
-#raw_vib_output=list()
-#for(f in files){
-#  print(f)
-#  data = readRDS(f) 
- # folder = data %>% select(phenotype) %>% unique %>% unname %>% unlist
- # if(folder=='single'){
-#    folder=='T2D'
- # data = data %>% mutate(dtype=strsplit(filename,paste(folder,'_',sep='')) %>% map_chr(2) %>% strsplit(.,'_') %>% map_chr(1)) %>% filter(dtype=='metaphlan')
-#
- # }
-  #else{
- # if(folder=='T2D'){
-#  data = data %>% mutate(dtype=strsplit(filename,'_stool') %>% map_chr(1) %>% strsplit(.,'_') %>% map_chr(16)) %>% filter(dtype=='metaphlan')
-#  }
- # else{
-#  data = data %>% mutate(dtype=strsplit(filename,paste(folder,'_',sep='')) %>% map_chr(2) %>% strsplit(.,'_') %>% map_chr(1)) %>% filter(dtype=='metaphlan')
- 
-#  }
-  #}
-#  raw_vib_output[[f]]=data
-#}
-
-#raw_vib_output=bind_rows(raw_vib_output)
-raw_vib_output=readRDS('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/merged_vibration_data_metaphlan.rds')
-raw_vib_output$dtype='metaphlan'
-
-summary_data=readRDS('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/summary_output_vibrations.rds')
-summary_data=summary_data %>% mutate(phenotype=strsplit(as.character(summary_data$id),'_') %>% map_chr(1))
-summary_data$phenotype=gsub('metaphlan-','',summary_data$phenotype)
-summary_data$phenotype=gsub('pathways-','',summary_data$phenotype)
-summary_data$phenotype=gsub('-meta-stats-to','',summary_data$phenotype)
-summary_data$datatype[summary_data$datatype=='single']='Gene Families'
-summary_data=summary_data %>% mutate(datatype = ifelse(datatype=='species', 'Species',ifelse(datatype=='genefamilies', 'Gene Families', 'Pathways')))
-summary_data = summary_data %>% filter(datatype=='Species') %>% mutate(joincol=paste(feature,datatype,phenotype,sep='_')) 
-vib_features_interesting_summary = left_join(litvibs,summary_data ,by=c('Feature.ID' = 'feature','Phenotype'='phenotype'))
-ma_sig = meta_analysis_output %>% filter(dtype == 'metaphlan' & adj<=.05) %>% select(feature,phenotype) %>% mutate(significant_after_meta_analysis = 1)
-vib_features_interesting_summary = left_join(vib_features_interesting_summary,ma_sig,by=c('Feature.ID'='feature','Phenotype'='phenotype')) %>%replace(is.na(.),0)
-write.csv(vib_features_interesting_summary,'~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/literature_analysis/lit_analysis_merged_summary.csv')
-
-vib_features_interesting = left_join(vib_features_interesting_summary,raw_vib_output ,by=c('Feature.ID'='feature','Phenotype'='phenotype'))
-saveRDS(vib_features_interesting,'~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/literature_analysis/lit_analysis_merged_full.rds')
-
-vib_features_interesting=vib_features_interesting %>% group_by(id)  %>% mutate(min_pval = min(p.value,na.rm=TRUE), p_val_significant_once=if_else(min_pval<=.05,1,0),fdr_significant_once=if_else(min_pval<=max_metaphlan_value,1,0))
-number_pvalue_significant=vib_features_interesting  %>% group_by(id) %>% filter(p.value<=.05) %>% tally()
-colnames(number_pvalue_significant)[2]='number_pvalue_significant'
-number_fdr_significant=vib_features_interesting  %>% group_by(id) %>% filter(p.value<=max_metaphlan_value) %>% tally()
-colnames(number_fdr_significant)[2]='number_fdr_significant'
-
-vib_features_interesting_subset=vib_features_interesting %>% ungroup() %>% select(id,Phenotype,Feature.Name,significant_after_meta_analysis,number_of_models,p_val_significant_once,fdr_significant_once,estimate_range,p.value_range,fraction_positive) %>% unique
-vib_features_interesting_subset=left_join(vib_features_interesting_subset,number_pvalue_significant,by='id')
-vib_features_interesting_subset=left_join(vib_features_interesting_subset,number_fdr_significant,by='id') %>% mutate(fraction_pvalue_significant = number_pvalue_significant/number_of_models, fraction_fdr_significant =number_fdr_significant/number_of_models,microbe_name = gsub('_',' ',gsub("^.*__", "", vib_features_interesting_subset$Feature.Name))) %>% replace(is.na(.),0)  %>% filter(number_of_models != 0)
-```
-
-```{r}
-#plot summary data
-
-#bolden function from https://stackoverflow.com/questions/39694490/highlighting-individual-axis-labels-in-bold-using-ggplot2
-
-bolden <- function(src, boulder) {
-  if (!is.factor(src)) src <- factor(src)                   # make sure it's a factor
-  src_levels <- levels(src)                                 # retrieve the levels in their order
-  brave <- boulder %in% src_levels                          # make sure everything we want to make bold is actually in the factor levels
-  if (all(brave)) {                                         # if so
-    b_pos <- purrr::map_int(boulder, ~which(.==src_levels)) # then find out where they are
-    b_vec <- rep("plain", length(src_levels))               # make'm all plain first
-    b_vec[b_pos] <- "bold"                                  # make our targets bold
-    b_vec                                                   # return the new vector
-  } else {
-    stop("All elements of 'boulder' must be in src")
-  }
-}
-
-plot_lit_rev_sum_fig <- function(for_heatmap_full,ptype,h1,h2,h3){
-  for_heatmap=for_heatmap_full %>% filter(Phenotype==ptype) %>% ungroup() %>%  arrange(significant_after_meta_analysis,fraction_positive,fraction_pvalue_significant)
-  
-  for_heatmap$microbe_name = factor(for_heatmap$microbe_name)
-  for_heatmap$microbe_name=fct_reorder(for_heatmap$microbe_name,seq(for_heatmap$microbe_name))
-  
-  #df1=for_heatmap %>% select(microbe_name,significant_after_meta_analysis) %>%melt()
-  df2=for_heatmap%>% select(microbe_name,fraction_positive,significant_after_meta_analysis,number_of_models) %>%melt(c("microbe_name","significant_after_meta_analysis","number_of_models"))
-  df2$rowname=paste(df2$microbe_name,' (N=',df2$number_of_models,')',sep='')
-  df2$rowname=fct_reorder(df2$rowname,seq(df2$microbe_name))
-  df3=for_heatmap %>% select(microbe_name,fraction_pvalue_significant,fraction_fdr_significant,number_of_models) %>%melt(c("microbe_name","number_of_models"))
-  
-  #p1=ggplot(df1,aes(x=variable, y=microbe_name,fill=as.factor(value))) + geom_tile(color = "black")+ theme(axis.text.y = element_blank(),strip.background = element_blank(),axis.title.y = element_blank(),axis.title.x = element_blank(),strip.text.x = element_blank(),axis.text.x = element_text(size=6,angle=90,hjust=0.95,vjust=0.2)) + scale_fill_manual(values=c('white','grey'))+theme(legend.position="none",legend.title = element_blank())+scale_x_discrete(expand=c(0,0))+scale_y_discrete(expand=c(0,0))+coord_flip()
-  
-  #p2=ggplot(df2,aes(x=variable, y=microbe_name,fill=value)) + geom_tile(color = "black")+ theme(axis.text.y = element_blank(),strip.background = element_blank(),axis.title.x = element_blank(),axis.title.y = element_blank(),strip.text.x = element_blank(),axis.text.x = element_text(face=bolden(df2$microbe_name,df2 %>% filter(significant_after_meta_analysis == 1) %>% select(microbe_name) %>% unname %>% unlist %>% as.character()),size=6,angle=90,hjust=0.95,vjust=0.2)) +theme(legend.position="none",legend.title = element_blank())+scale_x_discrete(expand=c(0,0))+scale_y_discrete(expand=c(0,0))+scale_fill_gradient2(midpoint = .5,low = "#66C2A5", mid = "#FC8D62",high="#66C2A5")+coord_flip()+ theme(legend.key.width=unit(2.2,"cm"))
-  
-    p2=ggplot(df2,aes(x=variable, y=rowname,fill=value)) + geom_tile(color = "black")+ theme(axis.text.y = element_blank(),strip.background = element_blank(),axis.title.x = element_blank(),axis.title.y = element_blank(),strip.text.x = element_blank(),axis.text.x = element_text(face=bolden(df2$microbe_name,df2 %>% filter(significant_after_meta_analysis == 1) %>% select(microbe_name) %>% unname %>% unlist %>% as.character()),size=9,angle=60,hjust=.95,vjust=.98)) +theme(legend.position="none",legend.title = element_blank())+scale_x_discrete(expand=c(0,0))+scale_y_discrete(expand=c(0,0))+scale_fill_gradient2(midpoint = .5,low = "#66C2A5", mid = "#FC8D62",high="#66C2A5")+coord_flip()+ theme(legend.key.width=unit(2.2,"cm"))
-        ggsave(paste(ptype,'p1','.pdf',sep=''),width=h3,height=3)
-
-  p3=ggplot(df3,aes(y=value,x=microbe_name,fill=variable,colour=NA))+geom_bar(color=NA,stat='identity',position=position_dodge())+ theme(axis.text.y = element_text(size=9),strip.background = element_blank(),axis.title.x = element_blank(),axis.title.y = element_blank(),strip.text.x = element_blank(),axis.text.x = element_blank()) +theme(legend.position="none",legend.title = element_blank())+scale_fill_manual(values=c("grey","black"))+ylim(0,1)+ggtitle(ptype)+theme(plot.title = element_text(size=12))
-  
-    ggsave(paste(ptype,'p2','.pdf',sep=''),width=h3,height=2)
-
-  pdf(paste(ptype,'_litrev_analysis.pdf',sep=''),width=16)
-  print(plot_grid(p3, p2, align = "v", nrow = 2, rel_heights = c(h1, h2)))
-  dev.off()
-  
- # lp1 <- get_legend(ggplot(for_heatmap %>% select(microbe_name,significant_after_meta_analysis) %>%melt(),aes(x=variable, y=microbe_name,fill=as.factor(value))) + geom_tile(color = "black")+ theme(axis.text.y = element_blank(),strip.background = element_blank(),axis.title.y = element_blank(),axis.title.x = element_blank(),strip.text.x = element_blank(),axis.text.x = element_text(size=9,angle=90)) + scale_fill_manual(values=c('white','grey'))+theme(legend.position="top",legend.title = element_blank())+scale_x_discrete(expand=c(0,0))+scale_y_discrete(expand=c(0,0))+coord_flip())
-  lp2 <- get_legend(ggplot(df2,aes(x=variable, y=microbe_name,fill=value)) + geom_tile(color = "black")+ theme(axis.text.y = element_blank(),strip.background = element_blank(),axis.title.x = element_blank(),axis.title.y = element_blank(),strip.text.x = element_blank(),axis.text.x = element_blank()) +theme(legend.position="bottom",legend.title = element_blank())+scale_x_discrete(expand=c(0,0))+scale_y_discrete(expand=c(0,0))+scale_fill_gradient2(midpoint = .5,low = "#66C2A5", mid = "#FC8D62",high="#66C2A5"))
-  lp3 <- get_legend(ggplot(df3,aes(y=value,x=microbe_name,fill=variable))+geom_bar(color='black',stat='identity',position=position_dodge())+ theme(axis.text.y = element_text(size=5,hjust=0.95,vjust=0.2),strip.background = element_blank(),axis.title.x = element_blank(),axis.title.y = element_blank(),strip.text.x = element_blank(),axis.text.x = element_blank()) +theme(legend.position="bottom",legend.title = element_blank())+scale_fill_manual(values=c("grey","black")))
-  
-  #as_ggplot(lp1)
-  #ggsave('legend_ma_sig.pdf')
-  
-  as_ggplot(lp2)
-  ggsave('legend_fp.pdf')
-  
-  as_ggplot(lp3)
-  ggsave('legend_barplot.pdf')
-}
-
-setwd('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/literature_analysis/')
-
-for_heatmap_full = vib_features_interesting_subset %>% select(microbe_name,Phenotype,significant_after_meta_analysis,fraction_positive,fraction_pvalue_significant,fraction_fdr_significant, number_of_models) %>% group_by(Phenotype) %>% arrange(significant_after_meta_analysis,fraction_positive)
-
-plot_lit_rev_sum_fig(for_heatmap_full,'cirrhosis',10,8,16)
-plot_lit_rev_sum_fig(for_heatmap_full,'ACVD',4,8,16)
-plot_lit_rev_sum_fig(for_heatmap_full,'IBD',6,14,8)
-plot_lit_rev_sum_fig(for_heatmap_full,'CRC',6,8,8)
-plot_lit_rev_sum_fig(for_heatmap_full,'T2D',4,14,8)
-plot_lit_rev_sum_fig(for_heatmap_full,'T1D',6,8,8)
 
 
 ```
+
 
 ```{r}
 #parse and save overlapping uniref IDs for manual lookup in uniparc
@@ -906,14 +708,14 @@ bigmap_genes_agree = bigmap_genes_agree %>% mutate(sum=rowSums(bigmap_genes_agre
 
 bigmap_genes_disagree = bigmap_genes %>% filter(count>2) %>% select(-count) 
 
-write.csv(bigmap_genes_agree %>% mutate(ID=strsplit(feature_name,'_') %>% map_chr(2)),'~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/ids_of_interest.csv')
+write.csv(bigmap_genes_agree %>% mutate(ID=strsplit(feature_name,'_') %>% map_chr(2)),'~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/ids_of_interest.csv')
 
 ```
 
 ```{r}
 options(warn=-1)
 #gene taxonomy analysis
-setwd('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/')
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/')
 
 #uniref90
 uniprot=read_excel('uniprot_annotations.xlsx')
@@ -954,13 +756,13 @@ for(i in ids){
 
 phylolist=as.data.frame(do.call('rbind',phylolist)) %>% rownames_to_column()
 
-write.csv(phylolist,paste('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/for_ete3_','overall','.csv',sep=''))
+write.csv(phylolist,paste('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/for_ete3_','overall','.csv',sep=''))
 
 #BUILD TREES SEPARATELY IN PYTHON
 ```
 
 ```{r}
-setwd('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/')
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/')
 
 
 tree=phytools::read.newick('ncbi_tree_for_voe_d_overall.nw')
@@ -973,7 +775,7 @@ for(lab in labs){
 labellist=as.data.frame(do.call('rbind',labellist)) %>% rownames_to_column() 
 tree$tip.label = labellist%>% select(species) %>% unname %>% unlist
 
-mappingfile=read.csv('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/mapping_for_ncbi_tree_overall.csv') %>% select(rowname,new_tax_id,species) %>% unique
+mappingfile=read.csv('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/mapping_for_ncbi_tree_overall.csv') %>% select(rowname,new_tax_id,species) %>% unique
 mappingfile$rowname=as.character(mappingfile$rowname)
 mappingfile2 = left_join(orgs, mappingfile,by=c('Organism ID'="rowname"))
 mappingfile2 = mappingfile2 %>% group_by(species) %>% mutate(count=n()) %>% select(-disease_ids,-`Organism ID`,-Organism) %>% unique   %>% select(-new_tax_id) %>% column_to_rownames('species')
@@ -996,7 +798,7 @@ mappingfile=cbind(mappingfile,mappingfile2) %>% rownames_to_column() %>% mutate(
 
 #build file for genus count analysis later and also phyla level coloring
 mappingfile_for_gene_counts=mappingfile
-mappingfile_for_gene_counts = left_join(mappingfile_for_gene_counts %>% rownames_to_column('species'),read.csv('~/Dropbox (HMS)/RagGroup Team Folder/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/mapping_for_ncbi_tree_overall.csv') %>% select(-c(rowname,X,Unnamed..0)) %>% unique) %>% column_to_rownames('lab')
+mappingfile_for_gene_counts = left_join(mappingfile_for_gene_counts %>% rownames_to_column('species'),read.csv('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/mapping_for_ncbi_tree_overall.csv') %>% select(-c(rowname,X,Unnamed..0)) %>% unique) %>% column_to_rownames('lab')
 
 mappingfile[1:7] = mappingfile[1:7]/mappingfile$count
 mappingfile = mappingfile %>% select(-count)
@@ -1022,6 +824,38 @@ p2 <- p1 + new_scale_fill()
 gheatmap(p2,data=directionality,hjust=1,offset=6, width=0.1, colnames=FALSE, legend_title=element_blank())+scale_fill_viridis_d(option="A")
 
 ggsave('./taxonomic_gene_tree_all_phenotype_circ.pdf',width=30,height=30)
+
+
+```
+```{r}
+#protective gene analysis and generate function table
+
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/figures/')
+
+dirs = directionality %>% filter(association_direction ==-1) %>% rownames_to_column() %>% select(rowname) %>% mutate(foo=strsplit(rowname,' \\(n') %>% map_chr(1)) %>% select(foo) %>% unname %>% unlist
+
+protective_genes = uniprot %>% filter(Organism %in% dirs)
+
+genenames = protective_genes %>% select(`Gene names`)
+
+prot_data=read_excel('protective_genes.xlsx')
+
+prot_data_merged = inner_join(uniprot,prot_data) 
+
+write.csv(prot_data_merged,'protective_genes_function_by_disease.csv')
+
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/')
+
+prot_data=read_excel('all_annotations_genes_of_interest.xlsx')
+
+dirs = directionality %>% rownames_to_column()%>% mutate(orgname=strsplit(rowname,' \\(n') %>% map_chr(1)) %>% select(orgname,association_direction) 
+
+allgenes=left_join(uniprot,dirs,by=c('Organism'='orgname'))
+
+prot_data_merged = left_join(allgenes,prot_data) 
+
+write.csv(prot_data_merged,'all_shared_genes_functional_info.csv')
+
 
 
 ```
