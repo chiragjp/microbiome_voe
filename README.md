@@ -7,7 +7,7 @@ If you want to learn more about vibration of effects (VoE), check out this paper
 
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4555355/
 
-This code is NOT meant to be distributed or deployed as a package, and instead is meant to provide assistance in understanding and reproducing the specific work in our manuscript. If you're interested in running VoE analyses yourself on other observational data, we are currently developing an R package for just this task that can be accessed at https://github.com/chiragjp/quant_voe.
+This code is NOT meant to be distributed or deployed as a package, and instead is meant to provide assistance in understanding and reproducing the specific work in our manuscript. If you're interested in running VoE analyses yourself on other observational data, we are currently developing an R package for just this task that can be accessed at https://github.com/chiragjp/quantvoe.
 
 ## Contents of directories:
 
