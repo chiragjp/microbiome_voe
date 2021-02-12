@@ -1,0 +1,533 @@
+---
+title: "review_architecture.R"
+author: "Braden T Tierney"
+date: "1/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#libraries
+
+library(tidyverse)
+library(UpSetR)
+library(stringr)
+library(cowplot)
+library(ggplot2)
+library(magrittr)
+library(rje)
+library(phylobase)
+library(reshape2)
+library(phytools)
+library(broom)
+library(taxonomizr)
+library(pheatmap)
+library(ecodist)
+library(ggtree)
+library(readxl)
+library(circlize)
+library(ggpubr)
+library(RColorBrewer)
+
+breaksList = seq(0, 1, by = .05)
+
+
+taxaNodes<-read.nodes('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/nodes.dmp')
+taxaNames<-read.names('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/names.dmp')
+          
+
+theme_set(theme_cowplot())
+```
+
+```{r}
+#load validation output, show reproducibility
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/validation/')
+
+gene_val_list = read.csv('genes_for_validation_full.csv') %>% select(-feature_name,-X) 
+gene_val_list_ibd = gene_val_list %>% filter(phenotype=='IBD')
+gene_val_list_crc = gene_val_list %>% filter(phenotype=='CRC')
+
+ibd = readRDS('ibd_validation_error_removed.rds') %>% mutate(phenotype='IBD') 
+crc = readRDS('crc_validation_error_removed.rds') %>% mutate(phenotype='CRC')
+
+ibd = ibd %>% filter(feature!='study_condition') %>%  mutate(id = strsplit(feature,'\\|','') %>% map_chr(2))
+crc = crc %>% filter(feature!='study_condition') %>%  mutate(id = strsplit(feature,'\\|','') %>% map_chr(2)) 
+
+ibd_crc = bind_rows(ibd %>% filter(!is.na(p.value)),crc%>% filter(!is.na(p.value))) %>% mutate(estimate = if_else(estimate<0,-1,1))
+
+ibd = left_join(gene_val_list_ibd,ibd%>% select(-phenotype),by=c('id')) %>% filter(!is.na(p.value))
+ibd= ibd %>% mutate(match = if_else(estimate.y>0 & estimate.x>0 | estimate.y<0 &estimate.x<0,1,0))
+
+crc = left_join(gene_val_list_crc,crc%>% select(-phenotype),by=c('id')) %>% filter(!is.na(p.value))
+crc = crc %>% mutate(match = if_else(estimate.y>0 & estimate.x>0 | estimate.y<0 &estimate.x<0,1,0))
+
+ggplot(data=ibd,aes(x=estimate.y,color=factor(match,levels=c(1,0)),y=-log10(p.value))) + geom_hline(yintercept=-log10(0.05), linetype="dashed") + geom_point(alpha=0.5,size=.04)+ scale_color_manual(values=c("black", "grey")) + xlim(-2,2) + xlab('Estimate')+ theme(legend.position = 'none')
+ggsave('ibd_validation_volc.png',width=5,height=3)
+
+ggplot(data=crc,aes(x=estimate.y,color=factor(match,levels=c(1,0)),y=-log10(p.value))) + geom_hline(yintercept=-log10(0.05), linetype="dashed") + geom_point(alpha=0.5,size=.04)+ scale_color_manual(values=c("black", "grey")) + xlim(-2,2) + xlab('Estimate')+ theme(legend.position = 'none')
+ggsave('crc_validation_volc.png',width=5,height=3)
+
+temp = ibd %>% filter(p.value<0.05) %>% select(estimate.x,estimate.y) 
+temp[temp>0]=1
+temp[temp<0]=-1
+temp %>% filter(estimate.x==estimate.y) %>% dim
+
+temp =crc%>%filter(p.value<0.05) %>% select(estimate.x,estimate.y) 
+temp[temp>0]=1
+temp[temp<0]=-1
+temp %>% filter(estimate.x==estimate.y) %>% dim
+
+gene_taxon_data = read_excel('gene_taxonomic_data.xlsx') %>% filter(`Protein names`!='Deleted.')
+
+ids=unique(gene_taxon_data$`Organism ID`)
+phylolist=list()
+for(i in ids){
+  phylolist[[i]]=getTaxonomy(i,taxaNodes,taxaNames)
+}
+
+phylolist=as.data.frame(do.call('rbind',phylolist)) %>% rownames_to_column()
+
+ibd = left_join(ibd,gene_taxon_data %>% select(id,`Organism ID`))
+ibd = left_join(ibd, phylolist, by = c(`Organism ID`='rowname')) 
+ibd_pre_val_species = ibd  %>% select(species) %>% table %>% as.data.frame %>% arrange(desc(Freq)) %>% head(25) 
+colnames(ibd_pre_val_species) = c('species','Initial')
+ibd_post_val_species = ibd %>% filter(p.value<0.05) %>% select(species) %>% table %>% as.data.frame %>% arrange(desc(Freq)) %>% head(25)
+colnames(ibd_post_val_species) = c('species','Validation')
+
+ibd_estimate_sizes = ibd %>% filter(p.value<0.05,match==1) %>% group_by(species) %>% mutate(mean_estimate_initial = mean(estimate.x),mean_estimate_validation = mean(estimate.y), sd_estimate_initial = sd(estimate.x,na.rm=TRUE),sd_estimate_validation = sd(estimate.y,na.rm = TRUE)) %>% select(species,mean_estimate_initial,sd_estimate_initial,mean_estimate_validation,sd_estimate_validation) %>% distinct %>% arrange(desc(abs(mean_estimate_initial))) %>% head(25)
+
+crc = left_join(crc, gene_taxon_data %>% select(id,`Organism ID`)) 
+crc = left_join(crc, phylolist, by = c(`Organism ID`='rowname')) 
+crc_pre_val_species = crc  %>% select(species) %>% table %>% as.data.frame %>% arrange(desc(Freq)) %>% head(25)
+colnames(crc_pre_val_species) = c('species','Initial')
+crc_post_val_species = crc %>% filter(p.value<0.05) %>% select(species) %>% table %>% as.data.frame %>% arrange(desc(Freq)) %>% head(25)
+colnames(crc_post_val_species) = c('species','Validation')
+
+crc_estimate_sizes = crc %>% filter(p.value<0.05,match==1) %>% group_by(species) %>% mutate(mean_estimate_initial = mean(estimate.x),mean_estimate_validation = mean(estimate.y), sd_estimate_initial = sd(estimate.x,na.rm=TRUE),sd_estimate_validation = sd(estimate.y,na.rm = TRUE)) %>% select(species,mean_estimate_initial,sd_estimate_initial,mean_estimate_validation,sd_estimate_validation) %>% distinct %>% arrange(desc(abs(mean_estimate_initial))) %>% head(25)
+
+ibd_species = full_join(ibd_pre_val_species,ibd_post_val_species) %>% filter(!is.na(Initial))
+ibd_species$species = fct_reorder(as.factor(as.character(ibd_species$species)),ibd_species$Initial)
+crc_species = full_join(crc_pre_val_species,crc_post_val_species) %>% filter(!is.na(Initial))
+crc_species$species = fct_reorder(as.factor(as.character(crc_species$species)),crc_species$Initial)
+
+ggplot(crc_species %>% melt, aes(x = factor(species), y = value, fill=variable)) +geom_dotplot(binaxis = "y",dotsize=1.5) +xlab('')+ coord_flip() 
+ggsave('crc_dotplot.pdf')
+ggplot(ibd_species %>% melt, aes(x = factor(species), y = value, fill=variable)) +geom_dotplot(binaxis = "y",dotsize=1.5) +xlab('')+ coord_flip()
+ggsave('ibd_dotplot.pdf')
+
+```
+
+
+```{r}
+#generate upset plot
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/validation/')
+
+gene_taxon_data = read_excel('gene_taxonomic_data.xlsx') %>% filter(`Protein names`!='Deleted.')
+
+gene_val_list_wide = spread(read.csv('genes_for_validation_full.csv') %>% select(-feature_name,-X) %>% mutate(estimate = if_else(estimate<0,-1,1)), phenotype, estimate) 
+gene_val_list_wide[is.na(gene_val_list_wide)]=0
+
+ibd_crc_wide = spread(ibd_crc %>% filter(p.value<0.05) %>% select(id,phenotype,estimate), phenotype, estimate) %>% rename(CRC_validation = CRC, IBD_validation = IBD)
+ibd_crc_wide[is.na(ibd_crc_wide)]=0
+
+data_for_tree = left_join(gene_val_list_wide,ibd_crc_wide)
+data_for_tree[is.na(data_for_tree)]=0
+data_for_tree = data_for_tree %>% mutate(IBD_validation = if_else(IBD==0,0,IBD_validation),CRC_validation = if_else(CRC==0,0,CRC_validation))
+data_for_tree = data_for_tree %>% mutate(IBD_validation = if_else(IBD_validation==IBD & IBD != 0,1,0),CRC_validation = if_else(CRC_validation==CRC & CRC != 0,1,0))
+
+data_for_tree = data_for_tree %>% select(-id) %>% abs
+
+pdf('upset_validation.pdf')
+upset(data_for_tree,keep.order = TRUE,sets = c('CRC','CRC_validation','IBD','IBD_validation'))
+dev.off()
+```
+
+```{r}
+#comparing methods, load data
+
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/comparing_models/')
+
+files = list.files()
+files = files[-grep('pdf',files)]
+
+all_comparison_data = list()
+for(f in files){
+  datatype = strsplit(f,'_') %>% map_chr(11)
+  data = readRDS(f) %>% mutate(datatype = datatype)
+  all_comparison_data[[f]] = data
+}
+
+all_comparison_data = all_comparison_data %>% bind_rows
+```
+
+```{r}
+####LOAD IN INITIAL ASSOCIATION OUTPUT
+
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis')
+
+#compute overall FDR
+counts <- list()
+counts2 <- list()
+files=list.files()
+files=files[grep('metaphlan',files)]
+files=files[grep('rds',files)]
+metaph=list()
+for(file in files){
+  f=readRDS(file)
+  counts[str_replace(file,'_meta_stats.rds','')]=nrow(f)
+  f$filename=file
+  f$phenotype=strsplit(file,'_')[[1]][2]
+  metaph[[file]]=f
+}
+metaph = bind_rows(metaph)
+metaph$dtype = 'metaphlan'
+metaph = metaph %>% mutate(adj=p.adjust(p.val,method='BY'))
+
+for(f in files){
+  counts2[str_replace(f,'_meta_stats.rds','')]=metaph %>% filter(filename==f) %>% filter(adj<.05) %>% nrow
+}
+
+files=list.files()
+files=files[grep('pathway',files)]
+files=files[grep('rds',files)]
+path=list()
+for(file in files){
+  f=readRDS(file)
+  counts[str_replace(file,'_meta_stats.rds','')]=nrow(f)
+  f$filename=file
+  f$phenotype=strsplit(file,'_')[[1]][2]
+  path[[file]]=f
+}
+path = bind_rows(path)
+path$dtype = 'pathways'
+path = path %>% mutate(adj=p.adjust(p.val,method='BY'))
+
+for(f in files){
+  counts2[str_replace(f,'_meta_stats.rds','')]=path %>% filter(filename==f) %>% filter(adj<.05) %>% nrow
+}
+
+#gene family stuff
+
+files=list.files()
+files=files[grep('families',files)]
+files=files[grep('rds',files)]
+gf=list()
+for(file in files){
+  f=readRDS(file)
+  counts[str_replace(file,'_meta_stats.rds','')]=nrow(f)
+  f$filename=file
+  f$phenotype=strsplit(file,'_')[[1]][2]
+  gf[[file]]=f
+}
+gf = bind_rows(gf)
+gf$dtype = 'genefamilies'
+gf = gf %>% mutate(adj=p.adjust(p.val,method='BY'))
+
+for(f in files){
+  counts2[str_replace(f,'_meta_stats.rds','')]=gf %>% filter(filename==f) %>% filter(adj<.05) %>% nrow
+}
+
+counts=data.frame(unlist(counts),unlist(counts2))
+colnames(counts)=c('Features remaining post regressions','Significant features (FDR < 0.05)')
+print(counts)
+
+write.csv(counts,'~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/figures/total_significant_features.csv')
+
+meta_analysis_output=rbind(metaph,path,gf)
+meta_analysis_output=meta_analysis_output %>% mutate(datatype = ifelse(dtype=='metaphlan', 'Species',ifelse(dtype=='genefamilies', 'Gene Families', 'Pathways'))) %>% mutate(joincol=paste(feature,datatype,phenotype,sep='_')) 
+
+summary_data=readRDS('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/summary_output_vibrations.rds')
+summary_data=summary_data %>% mutate(phenotype=strsplit(as.character(summary_data$id),'_') %>% map_chr(1))
+summary_data$phenotype=gsub('metaphlan-','',summary_data$phenotype)
+summary_data$phenotype=gsub('pathways-','',summary_data$phenotype)
+summary_data$phenotype=gsub('-meta-stats-to','',summary_data$phenotype)
+summary_data$datatype[summary_data$datatype=='single']='Gene Families'
+summary_data=summary_data %>% mutate(datatype = ifelse(datatype=='species', 'Species',ifelse(datatype=='genefamilies', 'Gene Families', 'Pathways')))
+summary_data = summary_data %>% mutate(joincol=paste(feature,datatype,phenotype,sep='_'))
+
+ma_vib_output=merge(summary_data,meta_analysis_output,by='joincol',how='inner') 
+
+ma_vib_output = ma_vib_output  %>% filter(fraction_positive <.01 | fraction_positive>.99)  %>% select(phenotype.x,feature_name,dtype,adj,estimate) %>% rename(phenotype=phenotype.x, initial_pval_adjusted = adj, estimate_initial = estimate)
+ma_vib_output$dtype[ma_vib_output$dtype=='pathways']='pathway'
+
+max_metaphlan_value = metaph %>% filter(adj<=.05) %>% select(p.val)%>% max
+max_path_value = path %>% filter(adj<=.05) %>% select(p.val)%>% max
+max_gf_value = gf %>% filter(adj<=.05) %>% select(p.val)%>% max
+```
+
+```{r}
+#upsetR analysis
+
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/comparing_models/')
+
+phenotypes = unique(all_comparison_data$term)
+datatypes = unique(all_comparison_data$datatype)
+
+non_randomized = all_comparison_data %>% filter(randomized==FALSE)
+
+non_randomized_batch = non_randomized %>% filter(batch_corrected==TRUE) %>% filter(!(term %in% c('cirrhosis','otitis','IBD','ACVD')))
+non_randomized_nonbatch = non_randomized %>% filter(batch_corrected==FALSE)
+
+#comparing p value significance across datatypes
+for(d in datatypes){
+  full_list = non_randomized %>% filter(datatype==d) %>% select(feature,term,datatype) %>% rename(phenotype=term) %>% distinct
+  if(d=='metaphlan'){
+    temp_p = max_metaphlan_value
+  }
+  if(d=='pathway'){
+    temp_p = max_path_value
+  }
+  if(d=='genefamilies'){
+    temp_p = max_gf_value
+  }
+  non_randomized_batch_sub = non_randomized_batch %>% filter(datatype==d) %>% mutate(batch_pval_adj = p.adjust(p.value,method='BY')) %>% select(term,feature,batch_pval_adj) %>% rename(phenotype=term)
+  non_randomized_nonbatch_sub = non_randomized_nonbatch %>% filter(datatype==d) %>% mutate(nonbatch_pval_adj = p.adjust(p.value,method='BY')) %>% select(term,feature,nonbatch_pval_adj) %>% rename(phenotype=term)
+  ma_vib_output_sub = ma_vib_output %>% filter(dtype==d)  %>% select(phenotype,dtype,feature_name,initial_pval_adjusted) %>% rename(datatype=dtype,feature=feature_name)
+  merged_pval_data = list(full_list,non_randomized_batch_sub,non_randomized_nonbatch_sub,ma_vib_output_sub) %>% reduce(left_join)
+  batch_adjusted = list()
+  non_batch_adjusted = list()
+  batch_adjusted_names = list()
+  non_batch_adjusted_names = list()
+  for(p in phenotypes){
+    merged_pval_data_sub = merged_pval_data %>% filter(phenotype==p)
+    if(!(p %in% c('cirrhosis','otitis','IBD','ACVD'))){
+      merged_pval_data_sub = merged_pval_data_sub  %>% mutate(nonbatch_pval_adj=if_else(nonbatch_pval_adj<temp_p,1,0),batch_pval_adj=if_else(batch_pval_adj<temp_p,1,0),initial_pval_adjusted=if_else(initial_pval_adjusted<0.05,1,0)) %>%  select(feature,batch_pval_adj,nonbatch_pval_adj,initial_pval_adjusted)
+      merged_pval_data_sub[is.na(merged_pval_data_sub)]=0
+      colnames(merged_pval_data_sub)[2:4] = paste(toupper(p),c('BATCH_ADJUSTED_PVALUE','NON_BATCH_ADJUSTED_PVALUE','VoE_PVALUE'),sep='_')
+      batch_adjusted[[p]] = merged_pval_data_sub
+      batch_adjusted_names[[p]] = powerSet(colnames(merged_pval_data_sub %>% select(-feature)))[2:8]
+    }
+    else{
+      merged_pval_data_sub = merged_pval_data %>% filter(phenotype==p) %>% select(-batch_pval_adj) %>% mutate(nonbatch_pval_adj=if_else(nonbatch_pval_adj<temp_p,1,0),initial_pval_adjusted=if_else(initial_pval_adjusted<0.05,1,0)) %>%  select(feature,nonbatch_pval_adj,initial_pval_adjusted)
+      merged_pval_data_sub[is.na(merged_pval_data_sub)]=0
+      colnames(merged_pval_data_sub)[2:3] = paste(toupper(p),c('NON_BATCH_ADJUSTED_PVALUE','VoE_PVALUE'),sep='_')
+      non_batch_adjusted[[p]] = merged_pval_data_sub
+      non_batch_adjusted_names[[p]] = powerSet(colnames(merged_pval_data_sub %>% select(-feature)))[2:4]
+    }
+  }
+  groups_nonbatch = lapply(unname(non_batch_adjusted_names), function(x) unique(unlist(x)))
+  individuals_nonbatch = purrr::map(unlist(unname(groups_nonbatch)), function(x) (x))
+  non_batch_adjusted = non_batch_adjusted %>% reduce(left_join) %>% data.frame %>%select(-feature) 
+  pdf(paste('upset_pvalues_nonbatch_',d,'.pdf',sep=''))
+  print(upset(non_batch_adjusted,sets=colnames(non_batch_adjusted),keep.order = T,intersections = c(groups_nonbatch,individuals_nonbatch),nintersects = NA,nsets = 10,order.by = 'degree'))
+  dev.off()
+  batch_adjusted = batch_adjusted %>% reduce(left_join) %>% data.frame %>%select(-feature) 
+  x=data.frame(list(1,1,1,1,1,1,1,1,1))
+  colnames(x) = colnames(batch_adjusted)
+  batch_adjusted = bind_rows(batch_adjusted,x) 
+  pdf(paste('upset_pvalues_batch_',d,'.pdf',sep=''))
+  print(upset(batch_adjusted,sets=colnames(batch_adjusted),keep.order = T,intersections = c(batch_adjusted_names[[1]],batch_adjusted_names[[2]],batch_adjusted_names[[3]]),nintersects = NA,nsets = 10,order.by = 'degree'))
+  dev.off()
+}
+
+
+```
+
+```{r}
+#upsetR analysis BUT RANDOMIZED
+
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/comparing_models/')
+
+phenotypes = unique(all_comparison_data$term)
+datatypes = unique(all_comparison_data$datatype)
+
+randomized = all_comparison_data %>% filter(randomized==TRUE)
+
+randomized_batch = randomized %>% filter(batch_corrected==TRUE) %>% filter(!(term %in% c('cirrhosis','otitis','IBD','ACVD')))
+randomized_nonbatch = randomized %>% filter(batch_corrected==FALSE)
+
+#comparing p value significance across datatypes
+for(d in datatypes){
+  if(d=='metaphlan'){
+    temp_p = max_metaphlan_value
+  }
+  if(d=='pathway'){
+    temp_p = max_path_value
+  }
+  if(d=='genefamilies'){
+    temp_p = max_gf_value
+  }
+  full_list = randomized %>% filter(datatype==d) %>% select(feature,term,datatype) %>% rename(phenotype=term) %>% distinct
+  randomized_batch_sub = randomized_batch %>% filter(datatype==d) %>% mutate(batch_pval_adj = p.adjust(p.value,method='BY')) %>% select(term,feature,batch_pval_adj) %>% rename(phenotype=term)
+  randomized_nonbatch_sub = randomized_nonbatch %>% filter(datatype==d) %>% mutate(nonbatch_pval_adj = p.adjust(p.value,method='BY')) %>% select(term,feature,nonbatch_pval_adj) %>% rename(phenotype=term)
+  ma_vib_output_sub = ma_vib_output %>% filter(dtype==d)  %>% select(phenotype,dtype,feature_name,initial_pval_adjusted) %>% rename(datatype=dtype,feature=feature_name)
+  merged_pval_data = list(full_list,randomized_batch_sub,randomized_nonbatch_sub,ma_vib_output_sub) %>% reduce(left_join)
+  batch_adjusted = list()
+  non_batch_adjusted = list()
+  batch_adjusted_names = list()
+  non_batch_adjusted_names = list()
+  for(p in phenotypes){
+    merged_pval_data_sub = merged_pval_data %>% filter(phenotype==p)
+    if(!(p %in% c('cirrhosis','otitis','IBD','ACVD'))){
+      merged_pval_data_sub = merged_pval_data_sub  %>% mutate(nonbatch_pval_adj=if_else(nonbatch_pval_adj<temp_p,1,0),batch_pval_adj=if_else(batch_pval_adj<temp_p,1,0),initial_pval_adjusted=if_else(initial_pval_adjusted<0.05,1,0)) %>%  select(feature,batch_pval_adj,nonbatch_pval_adj,initial_pval_adjusted)
+      merged_pval_data_sub[is.na(merged_pval_data_sub)]=0
+      colnames(merged_pval_data_sub)[2:4] = paste(toupper(p),c('BATCH_ADJUSTED_PVALUE','NON_BATCH_ADJUSTED_PVALUE','VoE_PVALUE'),sep='_')
+      batch_adjusted[[p]] = merged_pval_data_sub
+      batch_adjusted_names[[p]] = powerSet(colnames(merged_pval_data_sub %>% select(-feature)))[2:8]
+    }
+    else{
+      merged_pval_data_sub = merged_pval_data %>% filter(phenotype==p) %>% select(-batch_pval_adj) %>% mutate(nonbatch_pval_adj=if_else(nonbatch_pval_adj<temp_p,1,0),initial_pval_adjusted=if_else(initial_pval_adjusted<0.05,1,0)) %>%  select(feature,nonbatch_pval_adj,initial_pval_adjusted)
+      merged_pval_data_sub[is.na(merged_pval_data_sub)]=0
+      colnames(merged_pval_data_sub)[2:3] = paste(toupper(p),c('NON_BATCH_ADJUSTED_PVALUE','VoE_PVALUE'),sep='_')
+      non_batch_adjusted[[p]] = merged_pval_data_sub
+      non_batch_adjusted_names[[p]] = powerSet(colnames(merged_pval_data_sub %>% select(-feature)))[2:4]
+    }
+  }
+  groups_nonbatch = lapply(unname(non_batch_adjusted_names), function(x) unique(unlist(x)))
+  individuals_nonbatch = purrr::map(unlist(unname(groups_nonbatch)), function(x) (x))
+  non_batch_adjusted = non_batch_adjusted %>% reduce(left_join) %>% data.frame %>%select(-feature) 
+  x=data.frame(list(1,1,1,1,1,1,1,1))
+  colnames(x) = colnames(non_batch_adjusted)
+  non_batch_adjusted = bind_rows(non_batch_adjusted,x) 
+  pdf(paste('upset_RANDOMIZED_pvalues_nonbatch_',d,'.pdf',sep=''))
+  print(upset(non_batch_adjusted,sets=colnames(non_batch_adjusted),keep.order = T,intersections = c(groups_nonbatch,individuals_nonbatch),nintersects = NA,nsets = 10,order.by = 'degree'))
+  dev.off()
+  batch_adjusted = batch_adjusted %>% reduce(left_join) %>% data.frame %>%select(-feature) 
+  x=data.frame(list(1,1,1,1,1,1,1,1,1))
+  colnames(x) = colnames(batch_adjusted)
+  batch_adjusted = bind_rows(batch_adjusted,x) 
+  pdf(paste('upset_RANDOMIZED_pvalues_batch_',d,'.pdf',sep=''))
+  print(upset(batch_adjusted,sets=colnames(batch_adjusted),keep.order = T,intersections = c(batch_adjusted_names[[1]],batch_adjusted_names[[2]],batch_adjusted_names[[3]]),nintersects = NA,nsets = 10,order.by = 'degree'))
+  dev.off()
+}
+
+
+```
+
+
+```{r}
+#overall concordance between the 5 methods
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/comparing_models/')
+
+phenotypes = unique(all_comparison_data$term)
+datatypes = unique(all_comparison_data$datatype)
+
+non_randomized = all_comparison_data %>% filter(randomized==FALSE)
+
+non_randomized_batch = non_randomized %>% filter(batch_corrected==TRUE) %>% filter(!(term %in% c('cirrhosis','otitis','IBD','ACVD'))) %>% select(elastic_net,random_forest,spls,estimate) %>% filter(!is.na(random_forest))
+non_randomized_nonbatch = non_randomized %>% filter(batch_corrected==FALSE) %>% select(elastic_net,random_forest,spls,estimate) %>% filter(!is.na(random_forest))
+
+overall_cor_batch = cor(non_randomized_batch)
+overall_cor_nonbatch = cor(non_randomized_nonbatch)
+
+pdf('concordance_nonbatch.pdf')
+pheatmap(overall_cor_nonbatch,cluster_cols = FALSE,cluster_rows = FALSE,color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length(breaksList)),breaks = breaksList)
+dev.off()
+pdf('concordance_batch.pdf')
+pheatmap(overall_cor_batch,cluster_cols = FALSE,cluster_rows = FALSE,color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length(breaksList)),breaks = breaksList)
+dev.off()
+```
+
+```{r}
+#overall ranking between the 5 methods
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/comparing_models/')
+
+phenotypes = unique(all_comparison_data$term)
+datatypes = unique(all_comparison_data$datatype)
+
+non_randomized = all_comparison_data %>% filter(randomized==FALSE)
+
+non_randomized_batch = non_randomized %>% filter(batch_corrected==TRUE) %>% filter(!(term %in% c('cirrhosis','otitis','IBD','ACVD'))) %>% select(term,feature,datatype,elastic_net,random_forest,spls,estimate) %>% filter(!is.na(random_forest))
+non_randomized_nonbatch = non_randomized %>% filter(batch_corrected==FALSE) %>% select(term,feature,datatype,elastic_net,random_forest,spls,estimate) %>% filter(!is.na(random_forest))
+
+#for(p in phenotypes){
+#for(d in datatypes){
+non_randomized_batch_sub = non_randomized_batch %>% mutate_if(is.numeric,abs)# %>% filter(datatype==d) 
+non_randomized_batch_sub = non_randomized_batch_sub %>% arrange(desc(estimate)) %>% mutate(estimate=seq(nrow(non_randomized_batch_sub)))  %>% arrange(desc(spls)) %>% mutate(spls=seq(nrow(non_randomized_batch_sub)))  %>% arrange(desc(random_forest)) %>% mutate(random_forest=seq(nrow(non_randomized_batch_sub)))  %>% arrange(desc(elastic_net)) %>% mutate(elastic_net=seq(nrow(non_randomized_batch_sub)))
+non_randomized_nonbatch_sub = non_randomized_nonbatch %>% mutate_if(is.numeric,abs)#%>% filter(datatype==d) 
+non_randomized_nonbatch_sub = non_randomized_nonbatch_sub %>% arrange(desc(estimate)) %>% mutate(estimate=seq(nrow(non_randomized_nonbatch_sub)))  %>% arrange(desc(spls)) %>% mutate(spls=seq(nrow(non_randomized_nonbatch_sub)))  %>% arrange(desc(random_forest)) %>% mutate(random_forest=seq(nrow(non_randomized_nonbatch_sub)))  %>% arrange(desc(elastic_net)) %>% mutate(elastic_net=seq(nrow(non_randomized_nonbatch_sub)))
+  
+ 
+  #}
+#}
+pdf('ranking_batch.pdf')
+pheatmap(non_randomized_batch_sub %>% select(elastic_net,random_forest,spls,estimate) %>% cor %>% print,cluster_cols = FALSE,cluster_rows = FALSE,color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length(breaksList)),breaks = breaksList)
+dev.off()
+pdf('ranking_nonbatch.pdf')
+pheatmap(non_randomized_nonbatch_sub %>% select(elastic_net,random_forest,spls,estimate) %>% cor %>% print,cluster_cols = FALSE,cluster_rows = FALSE,color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length(breaksList)),breaks = breaksList)
+dev.off()
+```
+
+```{r}
+#repeat above two steps where significant in voe and compare correlation and concordance by disease
+
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/comparing_models/')
+
+phenotypes = unique(all_comparison_data$term)
+datatypes = unique(all_comparison_data$datatype)
+
+non_randomized = all_comparison_data %>% filter(randomized==FALSE)
+
+non_randomized_batch = non_randomized %>% filter(batch_corrected==TRUE) %>% filter(!(term %in% c('cirrhosis','otitis','IBD','ACVD'))) %>% select(term,feature,datatype,elastic_net,random_forest,spls,estimate) %>% filter(!is.na(random_forest))
+non_randomized_nonbatch = non_randomized %>% filter(batch_corrected==FALSE) %>% select(term,feature,datatype,elastic_net,random_forest,spls,estimate) %>% filter(!is.na(random_forest))
+
+#merge with signicant vibration output
+ma_vib_output_sub = ma_vib_output %>% filter(initial_pval_adjusted<0.05)  %>% select(phenotype,dtype,feature_name,estimate_initial) %>% rename(datatype=dtype,feature=feature_name,term=phenotype)
+
+merged_est_data_batch = list(ma_vib_output_sub,non_randomized_batch) %>% reduce(left_join) %>% select(-term,-datatype,-feature)
+merged_est_data_nonbatch = list(ma_vib_output_sub,non_randomized_nonbatch) %>% reduce(left_join) %>% select(-term,-datatype,-feature)
+
+overall_cor_nonbatch = cor(merged_est_data_nonbatch,use='complete.obs')
+overall_cor_batch = cor(merged_est_data_batch,use='complete.obs')
+
+pdf('overlapping_concordance_nonbatch.pdf')
+pheatmap(overall_cor_nonbatch,cluster_cols = FALSE,cluster_rows = FALSE,color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length(breaksList)),breaks = breaksList)
+dev.off()
+pdf('overlapping_concordance_batch.pdf')
+pheatmap(overall_cor_batch,cluster_cols = FALSE,cluster_rows = FALSE,color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length(breaksList)),breaks = breaksList)
+dev.off()
+```
+
+```{r}
+#gene level randomized and non-randomized architectures
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/comparing_models/')
+
+phenotypes = unique(all_comparison_data$term)
+datatypes = unique(all_comparison_data$datatype)
+
+non_randomized = all_comparison_data %>% filter(randomized==FALSE)
+
+non_randomized_batch = non_randomized %>% filter(batch_corrected==TRUE) %>% filter(!(term %in% c('cirrhosis','otitis','IBD','ACVD'))) %>% filter(!is.na(random_forest))
+non_randomized_nonbatch = non_randomized %>% filter(batch_corrected==FALSE) %>% filter(!is.na(random_forest))
+ma_vib_output_sub = ma_vib_output %>% filter(initial_pval_adjusted<0.05) %>% select(phenotype,dtype,feature_name,estimate_initial) %>% rename(datatype=dtype,feature=feature_name,term=phenotype)
+
+    ma_vib_output_sub = ma_vib_output_sub %>% mutate_if(is.numeric,abs)#%>% filter(datatype ==d)
+    non_randomized_batch_sub = non_randomized_batch %>% mutate_if(is.numeric,abs)#%>% filter(datatype==d) 
+    non_randomized_batch_sub = left_join(ma_vib_output_sub,non_randomized_batch_sub) %>% select(estimate_initial,elastic_net,random_forest,spls,estimate)
+    non_randomized_batch_sub = non_randomized_batch_sub %>% arrange(desc(estimate_initial)) %>% mutate(estimate=seq(nrow(non_randomized_batch_sub))) %>% arrange(desc(estimate)) %>% mutate(estimate=seq(nrow(non_randomized_batch_sub)))  %>% arrange(desc(spls)) %>% mutate(spls=seq(nrow(non_randomized_batch_sub)))  %>% arrange(desc(random_forest)) %>% mutate(random_forest=seq(nrow(non_randomized_batch_sub)))  %>% arrange(desc(elastic_net)) %>% mutate(elastic_net=seq(nrow(non_randomized_batch_sub)))
+    non_randomized_nonbatch_sub = non_randomized_nonbatch%>% mutate_if(is.numeric,abs)# %>% filter(datatype==d) 
+    non_randomized_nonbatch_sub = left_join(ma_vib_output_sub,non_randomized_nonbatch_sub) %>% select(estimate_initial,elastic_net,random_forest,spls,estimate)
+    non_randomized_nonbatch_sub = non_randomized_nonbatch_sub  %>% arrange(desc(estimate_initial)) %>% mutate(estimate_initial=seq(nrow(non_randomized_batch_sub))) %>% arrange(desc(estimate)) %>% mutate(estimate=seq(nrow(non_randomized_nonbatch_sub)))  %>% arrange(desc(spls)) %>% mutate(spls=seq(nrow(non_randomized_nonbatch_sub)))  %>% arrange(desc(random_forest)) %>% mutate(random_forest=seq(nrow(non_randomized_nonbatch_sub)))  %>% arrange(desc(elastic_net)) %>% mutate(elastic_net=seq(nrow(non_randomized_nonbatch_sub)))
+  non_randomized_batch_sub = non_randomized_batch_sub %>% select(estimate_initial,elastic_net,random_forest,spls,estimate) 
+  non_randomized_nonbatch_sub = non_randomized_nonbatch_sub %>% select(estimate_initial,elastic_net,random_forest,spls,estimate)
+  cor(non_randomized_nonbatch_sub,use='complete.obs')
+  cor(non_randomized_batch_sub,use='complete.obs')
+
+pdf('overlapping_ranking_batch.pdf')  
+pheatmap(non_randomized_batch_sub %>% select(estimate_initial,elastic_net,random_forest,spls,estimate) %>% cor %>% print,cluster_cols = FALSE,cluster_rows = FALSE,color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length(breaksList)),breaks = breaksList)
+dev.off()
+pdf('overlapping_ranking_nonbatch.pdf')  
+pheatmap(non_randomized_nonbatch_sub %>% select(estimate_initial,elastic_net,random_forest,spls,estimate) %>% cor %>% print,cluster_cols = FALSE,cluster_rows = FALSE,color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length(breaksList)),breaks = breaksList)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

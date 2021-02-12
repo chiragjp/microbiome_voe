@@ -50,7 +50,6 @@ counts <- list()
 counts2 <- list()
 files=list.files()
 files=files[grep('metaphlan',files)]
-files=files[-grep('T1D',files)]
 files=files[grep('rds',files)]
 metaph=list()
 for(file in files){
@@ -70,7 +69,6 @@ for(f in files){
 
 files=list.files()
 files=files[grep('pathway',files)]
-files=files[-grep('T1D',files)]
 files=files[grep('rds',files)]
 path=list()
 for(file in files){
@@ -92,7 +90,6 @@ for(f in files){
 
 files=list.files()
 files=files[grep('families',files)]
-files=files[-grep('T1D',files)]
 files=files[grep('rds',files)]
 gf=list()
 for(file in files){
@@ -114,9 +111,9 @@ counts=data.frame(unlist(counts),unlist(counts2))
 colnames(counts)=c('Features remaining post regressions','Significant features (FDR < 0.05)')
 print(counts)
 
-write.csv(counts,'~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/figures/total_significant_features.csv')
+write.csv(counts %>% rownames_to_column() %>% filter(!grepl('T1D',rowname)) %>% column_to_rownames('rowname'),'~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/figures/total_significant_features.csv')
 
-data=rbind(metaph,path,gf)
+data=rbind(metaph,path,gf) %>% filter(phenotype!='T1D')
 system('mkdir vibration_lists')
 
 #create plots and get list of output to vibrate over 
@@ -131,7 +128,9 @@ for(d in unique(data$dtype)){
     print(f)
     all_multi_good_summary_stats=data2 %>% filter(filename==f)
     name=paste(strsplit(f,'.rds')[1][1],'_plot.png',sep='')
-    outplots[[paste(f,d)]]=ggplot(all_multi_good_summary_stats, aes(x = estimate, y = -log10(adj), label = feature)) + geom_point(size=.5) +theme_cowplot(12)+ geom_hline(yintercept = -log10(.05))+ xlim(-3, 3) +ylim(0,15) +theme(axis.title.y=element_blank(),axis.title.x=element_blank())
+    if(!grepl('T1D',f)){
+      outplots[[paste(f,d)]]=ggplot(all_multi_good_summary_stats, aes(x = estimate, y = -log10(adj), label = feature)) + geom_point(size=.5) +theme_cowplot(12)+ geom_hline(yintercept = -log10(.05))+ xlim(-3, 3) +ylim(0,15) +theme(axis.title.y=element_blank(),axis.title.x=element_blank())
+    }
     ggplot(all_multi_good_summary_stats, aes(x = estimate, y = -log10(adj), label = feature)) + geom_point(size=.5) +theme_cowplot(12)+ggtitle(strsplit(f,'_')[[1]][2]) + geom_hline(yintercept = -log10(.05)) +xlab('Estimate') + xlim(-3, 3) +ylim(0,15)
     ggsave(name,height=3,width=3,units = 'in',dpi = 300)
     tovibrate = all_multi_good_summary_stats %>% filter(adj<.05) %>% select(feature)
@@ -148,32 +147,57 @@ for(d in unique(data$dtype)){
 }
 
 ```
+```{r}
+species_count=6832
+pathway_count=76251
+genefamily_count=1167504
 
+#counts
+data %>% filter(adj<0.05) %>% select(phenotype) %>% table
+
+#averag gene fam sig
+
+x=data %>% filter(adj<0.05) %>% filter(dtype=='genefamilies') %>% select(phenotype) %>% table %>% mean
+
+x
+x/genefamily_count
+  
+#averag path sig
+
+x=data %>% filter(adj<0.05) %>% filter(dtype=='pathways') %>% select(phenotype) %>% table %>% mean
+
+x
+x/pathway_count
+
+#averag metaph sig
+
+x=data %>% filter(adj<0.05) %>% filter(dtype=='metaphlan') %>% select(phenotype) %>% table %>% mean
+
+x
+x/species_count
+
+#directionality
+data %>% filter(adj<0.05,estimate>0) %>% nrow
+data %>% filter(adj<0.05,estimate<0) %>% nrow
+
+```
 
 ```{r}
 #format output plots for features
-ma_plots = outplots[c(2,9,16,3,10,17,6,13,20,7,14,21)]
+#outplots = outplots[c(1,2,3,4,5,6,8,9,10,11,12,13,14,16,17,18,19,20,21,22,24)]
 
-plot_grid(plotlist = ma_plots,ncol=3,rows=4, align = 'v')
+ma_plots = outplots[c(2,9,16,4,11,18,7,14,21)]
+
+plot_grid(plotlist = ma_plots,ncol=3,nrow=3, align = 'v')
 ggsave('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/meta_analyzed_volcanos.png')
 
-nma_plots = outplots[c(1,8,15,2,9,16,4,11,18,5,12,19)]
+nma_plots = outplots[c(1,8,15,3,10,17,5,12,19,6,13,20)]
 
 plot_grid(plotlist = nma_plots,ncol=3,nrow=4, align = 'v')
 ggsave('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/non_meta_analyzed_volcanos.png')
 
 ```
 
-```{r}
-#species/pathway/marker number of features
-
-species_count=6832
-pathway_count=76251
-genefamily_count=1167504
-
-####gotta use counts to generate plot
-
-```
 
 
 ```{r}
@@ -310,72 +334,6 @@ for(f in files){
 
 ```
 
-```{r}
-
-###disease specific confounder analysis
-plot_confounders <- function(estimate,pval,ptype){
-  voe_adjust_for_reg_ptype <- estimate %>% drop_na() %>% filter(term!='(Intercept)' & term!='statistic' & term!='X' & term!='std.error' )%>% select_if(~ length(unique(.)) > 1) 
-  vals=as.character(voe_adjust_for_reg_ptype$col_vector)
-  names(vals)=voe_adjust_for_reg_ptype$color
-  ggplot(voe_adjust_for_reg_ptype,aes(x=reorder(term, estimate),y=estimate,fill=color)) +geom_bar(stat='identity',width=.9) + coord_flip() + xlab('') + ylab('Change in model effect size')+ggtitle(ptype)+geom_errorbar(aes(ymin =sdmin,ymax=sdmax,width=.9))+ theme(plot.title = element_text(size=20))+theme(axis.text = element_text(size=16))+scale_fill_manual(values=vals)+theme(legend.position = 'none')
-  ggsave(paste('estimate_confounders_',ptype,'.pdf',sep=''),units='in')
-return( ggplot(voe_adjust_for_reg_ptype,aes(x=reorder(term, estimate),y=estimate,fill=color)) +geom_bar(stat='identity') + coord_flip() + xlab('') + ylab('Change in model effect size')+ggtitle(ptype)+geom_errorbar(aes(ymin =sdmin,ymax=sdmax))+ theme(plot.title = element_text(size=12))+theme(axis.text = element_text(size=10))+scale_fill_manual(values=vals)+theme(legend.position = 'none'))
-}
-
-
-setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/confounder_analysis/')
-
-files=list.files()
-files=files[grep('disease_specific_confounders_',files)]
-files_estimate=files[grep('estimate',files)]
-files_pvalue=files[grep('pvalue',files)]
-
-phenotypes=c('ACVD','adenoma','CRC','cirrhosis','T1D','T2D','IBD','otitis')
-
-colormap=read.csv('color_mapping_for_plot.csv',row.names=1)
-
-estimates=list()
-pvalues=list()
-outplots=list()
-for(p in phenotypes){
-  files1=files_estimate[grep(p,files_estimate)]
-  files2=files_pvalue[grep(p,files_pvalue)]
-  print(p)
-  e = readRDS(files1) %>% select(term,estimate,std.error,sdmin,sdmax) %>% drop_na()
-  print(e)
-  e = e %>% filter(!grepl('filename',term))
-  e = left_join(e,colormap,by=c('term'='colgroup'))%>% mutate(color=term)
-  e$color[is.na(e$col_vector)]='Other'
-  e$col_vector[is.na(e$col_vector)]='#808080'
-  estimates[[p]]=e %>% select(term,estimate,std.error,sdmin,sdmax,color,col_vector) %>% drop_na() %>% mutate(phenotype=p) %>% filter(term!='(Intercept)' & term!='statistic' & term!='X' & term!='std.error' )
-    outplots[[p]]=plot_confounders(e,pv,p)  
-}
-
-estimates=bind_rows(estimates)
-
-estimates_conserved = estimates %>% group_by(term) %>% mutate(count=n()) %>% ungroup %>% filter(count>1) %>% select(-count) %>% filter(phenotype!='IGI') %>% group_by(term) %>% mutate(mean=mean(estimate)) %>% arrange(desc(mean))
-
-estimates_conserved$term=fct_reorder(estimates_conserved$term,seq(nrow(estimates_conserved)))
-
-ggplot(estimates_conserved,aes(x=reorder(term,mean),y=estimate,fill=phenotype)) +geom_bar(stat='identity',position='dodge') + xlab('') + ylab('Change in model effect size')+ggtitle('Conserved adjusters')+geom_errorbar(aes(ymin =sdmin,ymax=sdmax), width = 0.2, position = position_dodge(width = 0.9))+ theme(legend.position = 'bottom',plot.title = element_text(size=12))+theme(axis.text = element_text(size=10,angle=30,hjust=1))
-ggsave('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/confounder_analysis/conserved_confounders.pdf')
-estimates_not_conserved = estimates %>% group_by(term) %>% mutate(count=n()) %>% ungroup %>% filter(count==1) %>% select(-count) %>% filter(phenotype!='IGI') %>% group_by(term) %>% mutate(mean=mean(estimate)) %>% arrange(desc(mean))
-
-
-phenos = unique(estimates_not_conserved$phenotype)
-for(p in phenos){
-  estimates_not_conserved_2 = estimates_not_conserved %>% filter(phenotype==p)
-  ggplot(estimates_not_conserved_2,aes(x=reorder(term,mean),y=estimate)) +geom_bar(stat='identity',position='dodge') + xlab('') + ylab('Change in model effect size')+ggtitle(p)+geom_errorbar(aes(ymin =sdmin,ymax=sdmax), width = 0.2, position = position_dodge(width = 0.9))+ theme(legend.position = 'bottom',plot.title = element_text(size=12))+theme(axis.text = element_text(size=10,angle=30,hjust=1))
-  ggsave(paste('estimate_confounders_specific',p,'.pdf',sep=''))#,height=4.51,width=14.5,units='in')
-}
-
-vals=as.character(estimates$col_vector)
-names(vals)=estimates$color
-ggplot(estimates,aes(x=reorder(term, estimate),y=estimate,fill=color)) +geom_bar(stat='identity') + coord_flip() + xlab('') + ylab('Change in model effect size')+ggtitle(p)+geom_errorbar(aes(ymin =sdmin,ymax=sdmax))+ theme(legend.position = 'bottom',plot.title = element_text(size=12))+theme(axis.text = element_text(size=10))+scale_fill_manual(values=vals)
-
-ggsave('confounder_legend.pdf')
-
-```
 
 ```{r}
 #robustness analysis
@@ -383,14 +341,14 @@ ggsave('confounder_legend.pdf')
 setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/confounder_analysis/')
 
 #load in summary data
-meta_analysis_output=rbind(metaph,path,gf)
+meta_analysis_output=rbind(metaph,path,gf) %>% filter(phenotype!='T1D')
 
 meta_analysis_output=meta_analysis_output %>% mutate(datatype = ifelse(dtype=='metaphlan', 'Species',ifelse(dtype=='genefamilies', 'Gene Families', 'Pathways'))) %>% mutate(joincol=paste(feature,datatype,phenotype,sep='_')) 
 
 litvibs=read.csv('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/vibration_choices_literature.csv',stringsAsFactors = FALSE,sep=',') %>% mutate(litvib=TRUE,datatype = ifelse(Data.Type=='species', 'Species',ifelse(Data.Type=='genefamilies', 'Gene Families', 'Pathways')),joincol=paste(Feature.ID,datatype,Phenotype,sep='_'))
 
 summary_data=readRDS('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe/summary_output_vibrations.rds')
-summary_data=summary_data %>% mutate(phenotype=strsplit(as.character(summary_data$id),'_') %>% map_chr(1))
+summary_data=summary_data %>% mutate(phenotype=strsplit(as.character(summary_data$id),'_') %>% map_chr(1)) %>% filter(phenotype!='T1D')
 summary_data$phenotype=gsub('metaphlan-','',summary_data$phenotype)
 summary_data$phenotype=gsub('pathways-','',summary_data$phenotype)
 summary_data$phenotype=gsub('-meta-stats-to','',summary_data$phenotype)
@@ -403,7 +361,7 @@ ma_vib_output=left_join(ma_vib_output,litvibs %>% select(joincol,litvib),by=c('j
 ma_vib_output$litvib[is.na(ma_vib_output$litvib)]=FALSE
 
 write.csv(ma_vib_output,'~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/figures/full_association_voe_output.csv')
-ma_vib_output=ma_vib_output %>% filter(!(adj>0.5 & litvib==TRUE))
+ma_vib_output=ma_vib_output %>% filter(!(adj>0.05 & litvib==TRUE))
 
 
 
@@ -451,6 +409,9 @@ for(f in files){
 }
 
 ma_vib_output1=ma_vib_output %>% select(-c(joincol,X,feature.x,datatype.x,id,phenotype.x)) %>% filter(fraction_positive <.01 | fraction_positive>.99) %>% filter(litvib==FALSE)
+
+#####GET VALIDATION DATA
+write.csv(ma_vib_output1 %>% mutate(id = gsub('UniRef90_','',feature_name)) %>% filter(phenotype.y=='CRC' | phenotype.y =='IBD', datatype.y=='Gene Families') %>% select(phenotype.y,estimate,feature_name,id),'~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/validation/genes_for_validation_full.csv')
 
 counts2=list()
 for(f in files){
@@ -519,9 +480,9 @@ str_replace(sf, '_meta_stats.rds', ''), '_'
 species = species_list %>% reduce(full_join, by = 'feature_name')
 
 pathways_list = list()
-pathways_files = unique(path$filename)
+pathways_files = unique(pathways$filename)
 for (pf in pathways_files) {
-pathways_list[[pf]] = path%>% filter(filename == pf) %>% mutate(sig = ifelse(adj <=
+pathways_list[[pf]] = pathways%>% filter(filename == pf) %>% mutate(sig = ifelse(adj <=
 .05, 1, 0)) %>% filter(adj <= .05) %>% select(feature_name, estimate) %>% rename(!!(strsplit(
 str_replace(pf, '_meta_stats.rds', ''), '_'
 )[[1]][2]) := estimate)
@@ -530,9 +491,9 @@ str_replace(pf, '_meta_stats.rds', ''), '_'
 pathways = pathways_list %>% reduce(full_join, by = 'feature_name')
 
 genefamilies_list = list()
-genefamilies_files = unique(gf$filename)
+genefamilies_files = unique(genefamilies$filename)
 for (g in genefamilies_files) {
-genefamilies_list[[g]] = gf  %>% filter(filename == g) %>% mutate(sig = ifelse(adj <=
+genefamilies_list[[g]] = genefamilies  %>% filter(filename == g) %>% mutate(sig = ifelse(adj <=
 .05, 1, 0)) %>% filter(adj <= .05) %>% select(feature_name, estimate) %>% rename(!!(strsplit(
 str_replace(g, '_meta_stats.rds', ''), '_'
 )[[1]][2]) := estimate)
@@ -603,7 +564,7 @@ dev.off()
 #get gigantic overall intersection map
 loggedoutput=list()
 bigmap=bind_rows(species_all,pathways_all,genefamilies_all) %>% mutate_if(is.numeric , replace_na, replace = 0) %>% filter(feature_name!='UNINTEGRATED' & feature_name != 'UNMAPPED')
-bigmap_jaccard=similarity_heatmap(bigmap)
+bigmap_jaccard=similarity_heatmap(bigmap )
 pdf(paste('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/',tag,'_upset_plot_overall.pdf'),width=9,height=5,onefile = FALSE)
 print(upset(data.frame(bigmap %>% select(-feature_name)), nsets = 20))
 dev.off()
@@ -667,7 +628,7 @@ return(foo)
 }
 
 similarity_heatmap <- function(data){
-data=data %>% select(-feature_name)
+data=data %>% select(-feature_name) 
 outputMap=as.data.frame(matrix(0,(ncol(data)),(ncol(data))))
 rownames(outputMap)=colnames(data)
 colnames(outputMap)=colnames(data)
@@ -683,8 +644,8 @@ outputMap[is.na(outputMap)]=0
 return(outputMap)
 }
 
-bigmap=plot_overlaps(ma_vib_output,'no_vib_filter')
-bigmap=plot_overlaps(ma_vib_output1,'je_filter')
+#bigmap=plot_overlaps(ma_vib_output %>% filter(phenotype.y!='T1D'),'no_vib_filter')
+bigmap=plot_overlaps(ma_vib_output1 %>% filter(phenotype.y!='T1D'),'je_filter')
 disagree=bigmap %>% mutate(count=rowSums(is.na(bigmap))) %>% filter(count<=7) %>% select(-count)
 disagree[is.na(disagree)] = 0
 disagree[,2:ncol(disagree)][disagree[2:ncol(disagree)]>0] = 1
@@ -708,8 +669,6 @@ bigmap_genes$count=apply(bigmap_genes %>% select(-feature_name), 1, function(x)l
 bigmap_genes_agree = bigmap_genes %>% filter(count==2) %>% select(-count) 
 bigmap_genes_agree[,2:8][bigmap_genes_agree[,2:8]!=0]=1
 bigmap_genes_agree = bigmap_genes_agree %>% mutate(sum=rowSums(bigmap_genes_agree %>% select(-feature_name))) %>% filter(sum>1) %>% select(-sum)
-
-bigmap_genes_disagree = bigmap_genes %>% filter(count>2) %>% select(-count) 
 
 write.csv(bigmap_genes_agree %>% mutate(ID=strsplit(feature_name,'_') %>% map_chr(2)),'~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/ids_of_interest.csv')
 
@@ -779,10 +738,10 @@ tree$tip.label = labellist%>% select(species) %>% unname %>% unlist
 mappingfile=read.csv('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/mapping_for_ncbi_tree_overall.csv') %>% select(rowname,new_tax_id,species) %>% unique
 mappingfile$rowname=as.character(mappingfile$rowname)
 mappingfile2 = left_join(orgs, mappingfile,by=c('Organism ID'="rowname"))
-mappingfile2 = mappingfile2 %>% group_by(species) %>% mutate(count=n()) %>% select(-disease_ids,-`Organism ID`,-Organism) %>% unique   %>% select(-new_tax_id) %>% column_to_rownames('species')
+mappingfile2 = mappingfile2 %>% group_by(species) %>% mutate(count=n()) %>% select(-disease_ids,-`Organism ID`,-Organism) %>% unique%>% select(-new_tax_id) %>% filter(!is.na(species)) %>% column_to_rownames('species')
 
 directionality = left_join(mappingfile,uniprot_for_tree,by=c('rowname'="Organism ID")) %>% select(-rowname) %>%  select(-new_tax_id) 
-directionality$count=rowSums(directionality[2:8])
+directionality$count=rowSums(directionality[2:7])
 directionality[is.na(directionality)]=0
 directionality = directionality %>% mutate(association_direction = if_else(count>0, 1, -1)) %>% select(species,association_direction) %>% unique 
 rownames(directionality) = c()
@@ -815,8 +774,8 @@ mappingfile_for_gene_counts$phylum[is.na(mappingfile_for_gene_counts$phylum)] = 
 
 rownames(mappingfile) =  c() 
 mappingfile = mappingfile %>% column_to_rownames('lab')
-colnames(mappingfile)[6]='CIRR'
-colnames(mappingfile)[7]='Otitis'
+colnames(mappingfile)[5]='CIRR'
+colnames(mappingfile)[6]='Otitis'
 
 tr2 <- phylo4d(tree, mappingfile_for_gene_counts)
 
@@ -850,7 +809,7 @@ write.csv(prot_data_merged,'protective_genes_function_by_disease.csv')
 
 setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/functional_gene_analysis/')
 
-prot_data=read_excel('all_annotations_genes_of_interest.xlsx')
+prot_data=read_excel('uniprot_annotations.xlsx')
 
 dirs = directionality %>% rownames_to_column()%>% mutate(orgname=strsplit(rowname,' \\(n') %>% map_chr(1)) %>% select(orgname,association_direction) 
 
@@ -860,6 +819,30 @@ prot_data_merged = left_join(allgenes,prot_data)
 
 write.csv(prot_data_merged,'all_shared_genes_functional_info.csv')
 
-
-
 ```
+
+```{r}
+setwd('~/Dropbox (HMS)/RagGroup Team Folder/Braden Tierney/vibration_of_effects_microbiome/meta_stats/disease_meta_analysis/voe')
+
+f='merged_vibration_data_CRC.rds'
+
+solob = uniprot[grep('Solob',uniprot$Organism),] %>% select(feature_name)
+solob2 = left_join(solob,mapping,by=c('feature_name'='feature_names')) %>% select(feature_num) %>% unname %>% unlist
+
+voe=readRDS(f)
+voe_solob_sub_gene = voe %>% filter( feature %in% solob2) %>% select(estimate,p.value,feature) %>% mutate(datatype='Gene')
+
+ggplot(data = voe_solob_sub_gene, aes(x = estimate, y = -log10(p.value))) +geom_hex(bins=100) +geom_hline(yintercept = -log10(max_gf_value),linetype='dashed') +theme(legend.position="bottom") +theme(legend.title = element_blank()) + xlab('Estimate') +xlim(-1.35,1.35) + ylim(0,14)+ theme(legend.text=element_text(size=6))+ggtitle('S. moorei F0204 gene-level associations with CRC')+ theme(plot.title = element_text(size=12)) + geom_hline(yintercept = -log10(0.05)) 
+
+ggsave('smore_analysis/gene_level_plot.pdf',width=6,height=6)
+
+f='merged_vibration_metaphlan_data_CRC_T1D_ACVD_T2D.rds'
+
+voe=readRDS(f)
+voe_solob_sub_species = voe %>% filter(feature=='feature_176') %>% filter(phenotype=='CRC')%>% select(estimate,p.value) %>% mutate(datatype='Species')
+
+ggplot(data = voe_solob_sub_species, aes(x = estimate, y = -log10(p.value))) +geom_hex(bins=100) +geom_hline(yintercept = -log10(max_gf_value),linetype='dashed') +theme(legend.position="bottom") +theme(legend.title = element_blank()) + xlab('Estimate') +xlim(-1.35,1.35)+ylim(0,14)+ theme(legend.text=element_text(size=6))+ggtitle('S. moorei species-level associations with CRC')+ theme(plot.title = element_text(size=12)) + geom_hline(yintercept = -log10(0.05))
+
+ggsave('smore_analysis/species_level_plot.pdf',width=6,height=6)
+```
+
